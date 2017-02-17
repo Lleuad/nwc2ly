@@ -8,8 +8,8 @@ TIME = '4/4'
 CLEF = "Treble"
 CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6}
 KEY = [
-       {a: '' for a in "abcdefg"},  #key sig
-       {a: '' for a in "abcdefg"},  #measure
+       {a: 'n' for a in "abcdefg"},  #key sig
+       {a: 'n' for a in "abcdefg"},  #measure
        {a: '' for a in "abcdefg"}]  #ties
 
 NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
@@ -20,19 +20,27 @@ NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
+def printOut(s, end):
+	print(s, end=end, file=OF)
+
+def printErr(s):
+	print("\tError: %s" % (s,), file=ERR)
+
 def Pitch(pos):
-	pitch = {'accidental': 'n', 'pitch': '', 'head': 'o', 'tie': False}
+	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
 	if not pos[0].isdigit():
-		pitch['accidental'] = pos.pop(0)
+		pitch['accidental'] = pos[0]
+		pos = pos[1:]
 	if not pos[-1].isdigit() and pos[-1] == '^':
 		pitch['tie'] = True
-		pos.pop()
+		pos = pos[:-1]
 	if not pos[-1].isdigit():
-		pitch['head'] = pos.pop()
+		pitch['head'] = pos[-1]
+		pos = pos[:-1]
 	if pos.isdigit():
-		pitch['pitch'] = pos
+		pitch['pitch'] = int(pos)
 	else:
-		print("%s is not a number" % (str(pos), ), file=ERR)
+		printErr("%s is not a number" % (str(pos), ))
 		exit()
 	
 	return pitch
@@ -43,10 +51,10 @@ def Dur(dur):
 		duration['length'] = '1'
 	elif dur[0] == 'Half':
 		duration['length'] = '2'
-	elif dur[0][:-2].isdigit()::
+	elif dur[0][:-2].isdigit():
 		duration['length'] = dur[0][:-2]
 	else:
-		print("%s is not a number", (str(dur[0][:-2]),))
+		printErr("%s is not a number", (str(dur[0][:-2]),))
 	
 	if 'DblDotted' in dur:
 		duration['length'] += '..'
@@ -73,12 +81,39 @@ def Dur(dur):
 
 def Note(line):
 	pitch = Pitch(line['Pos'][0])
-	dur = Dur(line['dur'])
+	dur = Dur(line['Dur'])
+	note = ""
+	name = NOTES[CLEF][pitch['pitch'] % 7]
 	
+	if dur['triplet'] == 'first':
+		note += '\\tuplet 3/2{'
+	
+	#note name
+	note += name
+	if pitch['accidental'] != '':
+		KEY[1][name] = pitch['accidental']
+	note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index(KEY[1][name])]
+		
+	#octave shift
+	if abs(pitch['pitch'] - PREVNOTE[0]) > 3:
+		note += ('\'' if pitch['pitch'] > PREVNOTE[0] else ',') * ((abs(pitch['pitch'] - PREVNOTE[0]) + 3) // 7)
+	PREVNOTE[0] = pitch['pitch']
+	
+	if dur['length'] != PREVNOTE[1]:
+		note += dur['length']
+		PREVNOTE[1] = dur['length']
+	
+	KEY[2][name] = ''
+	if pitch['tie']:
+		note += '~'
+		KEY[2][name] = KEY[1][name]
+	
+	printOut("%s " % (note,), '')
 
 with open(IF, errors='backslashreplace', newline=None) as f:
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
-		if line[''] == "Note":
+		if line[''][0] == "Note":
 			Note(line)
+		else:
+			printErr(line[''][0])
 	
-

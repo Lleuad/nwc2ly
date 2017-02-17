@@ -1,3 +1,5 @@
 NWC data structure.txt
-SONG1.nwctxt
 __pycache__
+*.nwctxt
+*.sw*
+*.pdf
