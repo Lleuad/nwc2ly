@@ -1,5 +1,9 @@
-NWC data structure.txt
 __pycache__
+*.py[cod]
+*$py.class
+*.so
+
+NWC data structure.txt
 *.nwctxt
 *.sw*
 *.pdf

@@ -79,17 +79,30 @@ def Dur(dur):
 	
 	return duration
 
-def Note(line):
-	pitch = Pitch(line['Pos'][0])
+def Expression(line, expr):
+	if expr in ['note']:
+		pitch = Pitch(line['Pos'][0])
 	dur = Dur(line['Dur'])
 	note = ""
-	name = NOTES[CLEF][pitch['pitch'] % 7]
 	
 	if dur['triplet'] == 'first':
 		note += '\\tuplet 3/2{'
 	
+	if expr == 'note':
+		note += Note(pitch, dur)
+	elif expr == 'rest':
+		note += Rest(dur)
+	
+	if dur['triplet'] == 'end':
+		note += '}'
+	
+	printOut("%s " % (note,))
+
+def Note(pitch, dur):
+	name = NOTES[CLEF][pitch['pitch'] % 7]
+	
 	#note name
-	note += name
+	note = name
 	if pitch['accidental'] != '':
 		KEY[1][name] = pitch['accidental']
 	note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index(KEY[1][name])]
@@ -108,13 +121,31 @@ def Note(line):
 		note += '~'
 		KEY[2][name] = KEY[1][name]
 	
-	printOut("%s " % (note,))
+	return note
+
+def Rest(dur):
+	
+	#note name
+	note = 'R' if dur['length'] == '1' else 'r'
+	
+	if dur['length'] != PREVNOTE[1]:
+		note += dur['length']
+		PREVNOTE[1] = dur['length']
+		
+		if dur['length'] == '1' and eval(TIME) != 1.:
+			note += "*%s" % (TIME,)
+			PREVNOTE[1] += "*%s" % (TIME,)
+	
+	return note
+
 
 with open(IF, errors='backslashreplace', newline=None) as f:
-	printOut('\\relative b\'{\n\t')
+	printOut('\\version \"2.18.2\"\n\n\\relative b\'{\n\t')
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		if line[''][0] == "Note":
-			Note(line)
+			Expression(line,'note')
+		elif line[''][0] == "Rest":
+			Expression(line,'rest')
 		else:
 			printErr(line[''][0])
 	
