@@ -20,15 +20,15 @@ NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
-def printOut(s, end):
-	print(s, end=end, file=OF)
+def printOut(s):
+	print(s, end='', file=OF)
 
 def printErr(s):
 	print("\tError: %s" % (s,), file=ERR)
 
 def Pitch(pos):
 	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
-	if not pos[0].isdigit():
+	if not pos[0].isdigit() and pos[0] != '-':
 		pitch['accidental'] = pos[0]
 		pos = pos[1:]
 	if not pos[-1].isdigit() and pos[-1] == '^':
@@ -37,10 +37,10 @@ def Pitch(pos):
 	if not pos[-1].isdigit():
 		pitch['head'] = pos[-1]
 		pos = pos[:-1]
-	if pos.isdigit():
+	if pos.replace('-','',1).isdigit():
 		pitch['pitch'] = int(pos)
 	else:
-		printErr("%s is not a number" % (str(pos), ))
+		printErr("%s is not a number" % (pos,))
 		exit()
 	
 	return pitch
@@ -54,7 +54,7 @@ def Dur(dur):
 	elif dur[0][:-2].isdigit():
 		duration['length'] = dur[0][:-2]
 	else:
-		printErr("%s is not a number", (str(dur[0][:-2]),))
+		printErr("%s is not a number" % (dur[0][:-2],))
 	
 	if 'DblDotted' in dur:
 		duration['length'] += '..'
@@ -108,12 +108,14 @@ def Note(line):
 		note += '~'
 		KEY[2][name] = KEY[1][name]
 	
-	printOut("%s " % (note,), '')
+	printOut("%s " % (note,))
 
 with open(IF, errors='backslashreplace', newline=None) as f:
+	printOut('\\relative b\'{\n\t')
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		if line[''][0] == "Note":
 			Note(line)
 		else:
 			printErr(line[''][0])
 	
+	printOut('\n}\n')
