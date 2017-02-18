@@ -17,10 +17,13 @@ NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Tenor":  ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
          "Alto":   ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
+SPAN = {"grace": False,}
+
 SWITCH = {
 		"Note": lambda : Expression(line,'note'),
 		"Rest": lambda : Expression(line,'rest'),
 		"Bar":  lambda : Bar(line),
+		"Key":  lambda : Key(line),
 		}
 
 def Tokenise(s):
@@ -91,6 +94,10 @@ def Expression(line, expr):
 	dur = Dur(line['Dur'])
 	note = ""
 	
+	if dur['grace'] and not SPAN['grace']:
+		SPAN['grace'] = True
+		note += '\\grace{'
+	
 	if dur['triplet'] == 'first':
 		note += '\\tuplet 3/2{'
 	
@@ -101,6 +108,10 @@ def Expression(line, expr):
 	
 	if dur['triplet'] == 'end':
 		note += '}'
+	
+	if not dur['grace'] and SPAN['grace']:
+		SPAN['grace'] = False
+		note = '}' + note
 	
 	printOut("%s " % (note,))
 
@@ -160,9 +171,14 @@ def Bar(line):
 	))
 	KEY[1].update(KEY[0])
 	
+def Key(line):
+	printOut("\set Staff.keySignature = #`( %s)\n\t" % (" ".join(["(%d . %s) " % ("CDEFGAB".index(a[0]), [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in line["Signature"]]) if line["Signature"][0] != "C" else '', ))
+	KEY[0].update([(a[0].lower(), a[1]) for a in line["Signature"]])
+	KEY[1].update(KEY[0])
 
 with open(IF, errors='backslashreplace', newline=None) as f:
 	printOut("\\version \"2.18.2\"\n")
+	printOut("\\pointAndClickOff")
 	printOut("\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n")
 	printOut("\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n")
 	printOut("\n\\relative b\'{\n\t")
