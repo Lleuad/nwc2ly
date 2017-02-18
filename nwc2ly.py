@@ -123,10 +123,11 @@ def Note(pitch, dur):
 		note += dur['length']
 		PREVNOTE[1] = dur['length']
 	
-	KEY[2][name] = ''
 	if pitch['tie']:
 		note += '~'
-		KEY[2][name] = KEY[1][name]
+		KEY[2][name] = KEY[2][name] or KEY[1][name]
+	else:
+		KEY[2][name] = ''
 	
 	return note
 
