@@ -17,6 +17,12 @@ NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Tenor":  ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
          "Alto":   ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
+SWITCH = {
+		"Note": lambda : Expression(line,'note'),
+		"Rest": lambda : Expression(line,'rest'),
+		"Bar":  lambda : Bar(line),
+		}
+
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
@@ -105,7 +111,8 @@ def Note(pitch, dur):
 	note = name
 	if pitch['accidental'] != '':
 		KEY[1][name] = pitch['accidental']
-	note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index(KEY[1][name])]
+	
+	note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index( KEY[2][name] or KEY[1][name] )]
 		
 	#octave shift
 	if abs(pitch['pitch'] - PREVNOTE[0]) > 3:
@@ -138,15 +145,16 @@ def Rest(dur):
 	
 	return note
 
+def Bar(line):
+	printOut("|\n\t")
+	KEY[1].update(KEY[0])
+#	KEY[1].update(list(KEY[0].items()) + [a for a in KEY[2].items() if a[1]])
 
 with open(IF, errors='backslashreplace', newline=None) as f:
 	printOut('\\version \"2.18.2\"\n\n\\relative b\'{\n\t')
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
-		if line[''][0] == "Note":
-			Expression(line,'note')
-		elif line[''][0] == "Rest":
-			Expression(line,'rest')
-		else:
-			printErr(line[''][0])
+		#faking switch case
+		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
 	
 	printOut('\n}\n')
+
