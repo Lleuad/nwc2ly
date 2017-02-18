@@ -30,7 +30,7 @@ def printOut(s):
 	print(s, end='', file=OF)
 
 def printErr(s):
-	print("\tError: %s" % (s,), file=ERR)
+	print("\r\tError: %s" % (s,), file=ERR)
 
 def Pitch(pos):
 	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
@@ -113,7 +113,7 @@ def Note(pitch, dur):
 		KEY[1][name] = pitch['accidental']
 	
 	note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index( KEY[2][name] or KEY[1][name] )]
-		
+	
 	#octave shift
 	if abs(pitch['pitch'] - PREVNOTE[0]) > 3:
 		note += ('\'' if pitch['pitch'] > PREVNOTE[0] else ',') * ((abs(pitch['pitch'] - PREVNOTE[0]) + 3) // 7)
@@ -147,12 +147,25 @@ def Rest(dur):
 	return note
 
 def Bar(line):
-	printOut("|\n\t")
+	printOut("%s\n\t" % (
+		{"Single": "|",
+		"Double": "\\bar\"||\"",
+		"SectionOpen": "\\bar\".|\"",
+		"SectionClose": "\\bar\"|.\"",
+		"LocalRepeatOpen": "\\bar\"||:\"",
+		"LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
+		"MasterRepeatOpen": "\\bar\".|:\"",
+		"MasterRepeatClose": "\\bar\":|.\""
+		}.get(line.get("Style",["Single"])[0],"|"),
+	))
 	KEY[1].update(KEY[0])
-#	KEY[1].update(list(KEY[0].items()) + [a for a in KEY[2].items() if a[1]])
+	
 
 with open(IF, errors='backslashreplace', newline=None) as f:
-	printOut('\\version \"2.18.2\"\n\n\\relative b\'{\n\t')
+	printOut("\\version \"2.18.2\"\n")
+	printOut("\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n")
+	printOut("\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n")
+	printOut("\n\\relative b\'{\n\t")
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		#faking switch case
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
