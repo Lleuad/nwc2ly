@@ -5,3 +5,10 @@ A line by line converter of NoteWorthy Composer's nwctxt file to lilypond
 * notes and rests (except chords, slurs and articulation)
 * all bar types
 * key signatures
+
+### Usage
+save to file:
+`python ./nwc2ly.py nwctextfile.nwctxt > lilypondfile.ly`
+
+pipe directly into lilypond:
+`python ./nwc2ly.py nwctextfile.nwctxt | lilypond --pdf - -o pdfout.pdf`
