@@ -1,29 +1,32 @@
 import sys
-IF = "SONG1.nwctxt"
+IF = sys.argv[1] if sys.argv.__len__() > 1 else "SONG1.nwctxt"
 OF = sys.stdout
 ERR = sys.stderr
 
 PREVNOTE = [0, ""] #pos, dur
 TIME = '4/4'
+NUMTIMESIG = False
 CLEF = "Treble"
 CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6}
 KEY = [
        {a: 'n' for a in "abcdefg"},  #key sig
        {a: 'n' for a in "abcdefg"},  #measure
-       {a: '' for a in "abcdefg"}]  #ties
+       {a: '' for a in "abcdefg"}]   #ties
 
 NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Bass":   ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
          "Tenor":  ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
          "Alto":   ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
-SPAN = {"grace": False,}
+SPAN = {"grace": False,
+        "slur": False}
 
 SWITCH = {
-		"Note": lambda : Expression(line,'note'),
-		"Rest": lambda : Expression(line,'rest'),
-		"Bar":  lambda : Bar(line),
-		"Key":  lambda : Key(line),
+		"Note":    lambda : Expression(line,'note'),
+		"Rest":    lambda : Expression(line,'rest'),
+		"Bar":     lambda : Bar(line),
+		"Key":     lambda : Key(line),
+		"TimeSig": lambda : Time(line),
 		}
 
 def Tokenise(s):
@@ -55,7 +58,15 @@ def Pitch(pos):
 	return pitch
 
 def Dur(dur):
-	duration = {'length': '4', 'triplet': None, 'grace': False, 'staccato': False, 'tenuto': False, 'accent': False, 'slur': False}
+	duration = {'length': '4',
+                'triplet': None,
+                'grace': False,
+                'staccato': False,
+                'staccatissimo': False,
+                'tenuto': False,
+                'marcato': False,
+                'accent': False,
+                'slur': False}
 	if dur[0] == 'Whole':
 		duration['length'] = '1'
 	elif dur[0] == 'Half':
@@ -85,6 +96,10 @@ def Dur(dur):
 		duration['slur'] = True
 	if 'Accent' in dur:
 		duration['accent'] = True
+	if 'Marcato' in dur:
+		duration['marcato'] = True
+	if 'Staccatissimo' in dur:
+		duration['staccatissimo'] = True
 	
 	return duration
 
@@ -94,21 +109,46 @@ def Expression(line, expr):
 	dur = Dur(line['Dur'])
 	note = ""
 	
+	#grace on
 	if dur['grace'] and not SPAN['grace']:
 		SPAN['grace'] = True
 		note += '\\grace{'
 	
+	#triplet on
 	if dur['triplet'] == 'first':
 		note += '\\tuplet 3/2{'
 	
+	#note or rest
 	if expr == 'note':
 		note += Note(pitch, dur)
 	elif expr == 'rest':
 		note += Rest(dur)
 	
+	#slur
+	if dur['slur'] and not SPAN['slur']:
+		note += '('
+		SPAN['slur'] = True
+	elif not dur['slur'] and SPAN['slur']:
+		note += ')'
+		SPAN['slur'] = False
+	
+	#articulation
+	if dur['staccato']:
+		note += '-.' if not dur['tenuto'] else '-_'
+	if dur['staccatissimo']:
+		note += '-!'
+	if dur['tenuto'] and not dur['staccato']:
+		note += '--'
+	if dur['accent']:
+		note += '->'
+	if dur['marcato']:
+		note += '-^'
+	
+	#triplet off
 	if dur['triplet'] == 'end':
 		note += '}'
 	
+	#grace off
 	if not dur['grace'] and SPAN['grace']:
 		SPAN['grace'] = False
 		note = '}' + note
@@ -134,6 +174,7 @@ def Note(pitch, dur):
 		note += dur['length']
 		PREVNOTE[1] = dur['length']
 	
+	#tie
 	if pitch['tie']:
 		note += '~'
 		KEY[2][name] = KEY[2][name] or KEY[1][name]
@@ -161,6 +202,8 @@ def Bar(line):
 	printOut("%s\n\t" % (
 		{"Single": "|",
 		"Double": "\\bar\"||\"",
+		"BrokenSingle": "\\bar\"!\"",
+		"BrokenDouble": "\\bar\"!!\"",
 		"SectionOpen": "\\bar\".|\"",
 		"SectionClose": "\\bar\"|.\"",
 		"LocalRepeatOpen": "\\bar\"||:\"",
@@ -176,11 +219,25 @@ def Key(line):
 	KEY[0].update([(a[0].lower(), a[1]) for a in line["Signature"]])
 	KEY[1].update(KEY[0])
 
+def Time(line):
+	global TIME, NUMTIMESIG
+	TIME = {"Common": '4/4', "AllaBreve": '2/2'}.get(line["Signature"][0], line["Signature"][0])
+	
+	if line['Signature'][0] in ["Common", "AllaBreve"] and NUMTIMESIG:
+		printOut("\\defaultTimeSignature ")
+		NUMTIMESIG = False
+	elif line['Signature'][0] in ['4/4', '2/2'] and not NUMTIMESIG:
+		printOut("\\numericTimeSignature ")
+		NUMTIMESIG = True
+	
+	printOut("\\time %s\n\t" % (TIME,))
+
 with open(IF, errors='backslashreplace', newline=None) as f:
 	printOut("\\version \"2.18.2\"\n")
-	printOut("\\pointAndClickOff")
-	printOut("\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n")
-	printOut("\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n")
+	printOut("\\pointAndClickOff\n")
+	printOut("\\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n")
+	printOut("\\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n")
+	printOut("\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n")
 	printOut("\n\\relative b\'{\n\t")
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		#faking switch case
