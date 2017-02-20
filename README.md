@@ -1,10 +1,11 @@
 # nwc2ly
-A line by line converter of NoteWorthy Composer's nwctxt file to lilypond
+A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 
-### Currently handles (nwc version 2.0):
+### Currently handles (nwc version 2.75):
 * notes and rests (except chords)
 * all bar types
 * key and time signatures
+* clefs (except percussion)
 
 ### Usage
 save to file:
