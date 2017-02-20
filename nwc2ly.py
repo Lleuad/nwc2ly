@@ -15,18 +15,19 @@ HEADER = """\
 PREVNOTE = [0, ""] #pos, dur
 TIME = '4/4'
 NUMTIMESIG = False
+ENDBAR = "|."
 CLEF = ["Treble", ""]
-CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6,
-            "Treble8vb": 7, "Bass8vb": 19, "Tenor8vb": 15, "Alto8vb": 13,
-            "Treble8va": -7, "Bass8va": 5, "Tenor8va": 1, "Alto8va": -1}
+CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6, "Percussion": 6}
+
 KEY = [{a: 'n' for a in "abcdefg"},  #key sig
        {a: 'n' for a in "abcdefg"},  #measure
        {a: '' for a in "abcdefg"}]   #ties
 
-NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
-         "Bass":   ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
-         "Tenor":  ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-         "Alto":   ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
+NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
+         "Bass":       ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
+         "Tenor":      ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+         "Alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
+         "Percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
 SPAN = {"grace": False,
         "slur": False,
@@ -35,12 +36,13 @@ SPAN = {"grace": False,
 DELAY = {"dynamic": '',
          "dynamicvar": ''}
 
-SWITCH = {"Note":    lambda : Expression(line,'note'),
-          "Rest":    lambda : Expression(line,'rest'),
-          "Bar":     lambda : Bar(line),
-          "Key":     lambda : Key(line),
-          "TimeSig": lambda : Time(line),
-          "Clef":    lambda : Clef(line)}
+SWITCH = {"Note":            lambda : Expression(line,'note'),
+          "Rest":            lambda : Expression(line,'rest'),
+          "Bar":             lambda : Bar(line),
+          "Key":             lambda : Key(line),
+          "TimeSig":         lambda : Time(line),
+          "Clef":            lambda : Clef(line),
+          "StaffProperties": lambda : StaffProperties(line)}
 
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
@@ -213,16 +215,16 @@ def Rest(dur):
 
 def Bar(line):
 	printOut("%s\n\t" % (
-		{"Single": "|",
-        "Double": "\\bar\"||\"",
-        "BrokenSingle": "\\bar\"!\"",
-        "BrokenDouble": "\\bar\"!!\"",
-        "SectionOpen": "\\bar\".|\"",
-        "SectionClose": "\\bar\"|.\"",
-        "LocalRepeatOpen": "\\bar\"||:\"",
-        "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
-        "MasterRepeatOpen": "\\bar\".|:\"",
-        "MasterRepeatClose": "\\bar\":|.\""
+        {"Single": "|",
+         "Double": "\\bar\"||\"",
+         "BrokenSingle": "\\bar\"!\"",
+         "BrokenDouble": "\\bar\"!!\"",
+         "SectionOpen": "\\bar\".|\"",
+         "SectionClose": "\\bar\"|.\"",
+         "LocalRepeatOpen": "\\bar\"||:\"",
+         "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
+         "MasterRepeatOpen": "\\bar\".|:\"",
+         "MasterRepeatClose": "\\bar\":|.\""
         }.get(line.get("Style",["Single"])[0],"|"),
 	))
 	KEY[1].update(KEY[0])
@@ -246,7 +248,6 @@ def Time(line):
 	printOut("\\time %s\n\t" % (TIME,))
 
 def Clef(line):
-	global CLEF
 	PREVNOTE[0] -= CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
 	CLEF[0] = line["Type"][0]
 	
@@ -254,14 +255,25 @@ def Clef(line):
 		CLEF[1] = {"Octave Down": "_8", "Octave Up": "^8"}.get(line["OctaveShift"][0],"")
 		printOut("\\clef \"%s%s\" " % (CLEF[0].lower(), CLEF[1]))
 	else:
+		CLEF[1] = ""
 		printOut("\clef %s " % (line["Type"][0].lower(), ))
 	PREVNOTE[0] += CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
 
+def StaffProperties(line):
+	global ENDBAR
+	if "EndingBar" in line:
+		ENDBAR = {"Section Close": "|.",
+                  "Master Repeat Close": ":|.",
+                  "Single": "|",
+                  "Double": "||",
+                  "Open (hidden)": ""}.get(line["EndingBar"][0],"|.")
+		printErr(ENDBAR)
+	
 with open(IF, errors='backslashreplace', newline=None) as f:
 	printOut(HEADER)
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		#faking switch case
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
 	
-	printOut('\n}\n')
+	printOut("\\bar \"%s\"\n}\n" % (ENDBAR,))
 
