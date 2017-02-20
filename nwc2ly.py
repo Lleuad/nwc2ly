@@ -2,14 +2,24 @@ import sys
 IF = sys.argv[1] if sys.argv.__len__() > 1 else "SONG1.nwctxt"
 OF = sys.stdout
 ERR = sys.stderr
+HEADER = """\
+\\version \"2.18.2\"
+\\pointAndClickOff
+\\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")
+\\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
+\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
+
+\\relative b\'{
+\t"""
 
 PREVNOTE = [0, ""] #pos, dur
 TIME = '4/4'
 NUMTIMESIG = False
-CLEF = "Treble"
-CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6}
-KEY = [
-       {a: 'n' for a in "abcdefg"},  #key sig
+CLEF = ["Treble", ""]
+CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6,
+            "Treble8vb": 7, "Bass8vb": 19, "Tenor8vb": 15, "Alto8vb": 13,
+            "Treble8va": -7, "Bass8va": 5, "Tenor8va": 1, "Alto8va": -1}
+KEY = [{a: 'n' for a in "abcdefg"},  #key sig
        {a: 'n' for a in "abcdefg"},  #measure
        {a: '' for a in "abcdefg"}]   #ties
 
@@ -19,15 +29,18 @@ NOTES = {"Treble": ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Alto":   ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
 SPAN = {"grace": False,
-        "slur": False}
+        "slur": False,
+        "dynamicvar": False}
 
-SWITCH = {
-		"Note":    lambda : Expression(line,'note'),
-		"Rest":    lambda : Expression(line,'rest'),
-		"Bar":     lambda : Bar(line),
-		"Key":     lambda : Key(line),
-		"TimeSig": lambda : Time(line),
-		}
+DELAY = {"dynamic": '',
+         "dynamicvar": ''}
+
+SWITCH = {"Note":    lambda : Expression(line,'note'),
+          "Rest":    lambda : Expression(line,'rest'),
+          "Bar":     lambda : Bar(line),
+          "Key":     lambda : Key(line),
+          "TimeSig": lambda : Time(line),
+          "Clef":    lambda : Clef(line)}
 
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
@@ -156,7 +169,7 @@ def Expression(line, expr):
 	printOut("%s " % (note,))
 
 def Note(pitch, dur):
-	name = NOTES[CLEF][pitch['pitch'] % 7]
+	name = NOTES[CLEF[0]][pitch['pitch'] % 7]
 	
 	#note name
 	note = name
@@ -201,16 +214,16 @@ def Rest(dur):
 def Bar(line):
 	printOut("%s\n\t" % (
 		{"Single": "|",
-		"Double": "\\bar\"||\"",
-		"BrokenSingle": "\\bar\"!\"",
-		"BrokenDouble": "\\bar\"!!\"",
-		"SectionOpen": "\\bar\".|\"",
-		"SectionClose": "\\bar\"|.\"",
-		"LocalRepeatOpen": "\\bar\"||:\"",
-		"LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
-		"MasterRepeatOpen": "\\bar\".|:\"",
-		"MasterRepeatClose": "\\bar\":|.\""
-		}.get(line.get("Style",["Single"])[0],"|"),
+        "Double": "\\bar\"||\"",
+        "BrokenSingle": "\\bar\"!\"",
+        "BrokenDouble": "\\bar\"!!\"",
+        "SectionOpen": "\\bar\".|\"",
+        "SectionClose": "\\bar\"|.\"",
+        "LocalRepeatOpen": "\\bar\"||:\"",
+        "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
+        "MasterRepeatOpen": "\\bar\".|:\"",
+        "MasterRepeatClose": "\\bar\":|.\""
+        }.get(line.get("Style",["Single"])[0],"|"),
 	))
 	KEY[1].update(KEY[0])
 	
@@ -232,13 +245,20 @@ def Time(line):
 	
 	printOut("\\time %s\n\t" % (TIME,))
 
+def Clef(line):
+	global CLEF
+	PREVNOTE[0] -= CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
+	CLEF[0] = line["Type"][0]
+	
+	if "OctaveShift" in line:
+		CLEF[1] = {"Octave Down": "_8", "Octave Up": "^8"}.get(line["OctaveShift"][0],"")
+		printOut("\\clef \"%s%s\" " % (CLEF[0].lower(), CLEF[1]))
+	else:
+		printOut("\clef %s " % (line["Type"][0].lower(), ))
+	PREVNOTE[0] += CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
+
 with open(IF, errors='backslashreplace', newline=None) as f:
-	printOut("\\version \"2.18.2\"\n")
-	printOut("\\pointAndClickOff\n")
-	printOut("\\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n")
-	printOut("\\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n")
-	printOut("\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n")
-	printOut("\n\\relative b\'{\n\t")
+	printOut(HEADER)
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		#faking switch case
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
