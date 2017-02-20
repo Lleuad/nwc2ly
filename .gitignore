@@ -4,6 +4,6 @@ __pycache__
 *.so
 
 NWC data structure.txt
-*.nwctxt
+*.nwctxt*
 *.sw*
 *.pdf
