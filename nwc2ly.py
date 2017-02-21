@@ -9,19 +9,17 @@ HEADER = """\
 \\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
 
-\\relative b\'{
-\t"""
+<< \\new Staff{
+	\\relative b\'{
+	"""
 
-PREVNOTE = [0, ""] #pos, dur
-TIME = '4/4'
-NUMTIMESIG = False
-ENDBAR = "|."
-CLEF = ["Treble", ""]
+FOOTER = """\
+}
+}>>
+"""
+
+STAFFADDED = False
 CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6, "Percussion": 6}
-
-KEY = [{a: 'n' for a in "abcdefg"},  #key sig
-       {a: 'n' for a in "abcdefg"},  #measure
-       {a: '' for a in "abcdefg"}]   #ties
 
 NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Bass":       ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
@@ -29,20 +27,33 @@ NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
          "Percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
-SPAN = {"grace": False,
-        "slur": False,
-        "dynamicvar": False}
-
-DELAY = {"dynamic": '',
-         "dynamicvar": ''}
-
 SWITCH = {"Note":            lambda : Expression(line,'note'),
           "Rest":            lambda : Expression(line,'rest'),
           "Bar":             lambda : Bar(line),
           "Key":             lambda : Key(line),
           "TimeSig":         lambda : Time(line),
           "Clef":            lambda : Clef(line),
-          "StaffProperties": lambda : StaffProperties(line)}
+          "StaffProperties": lambda : StaffProperties(line),
+          "AddStaff":        lambda : AddStaff(line)}
+
+def Reset():
+	global PREVNOTE, TIME, NUMTIWESIG, ENDBAR, CLEF, KEY, SPAN, DELAY
+	PREVNOTE = [0, ""] #pos, dur
+	TIME = '4/4'
+	NUMTIMESIG = False
+	ENDBAR = "|."
+	CLEF = ["Treble", ""]
+	
+	KEY = [{a: 'n' for a in "abcdefg"},  #key sig
+		   {a: 'n' for a in "abcdefg"},  #measure
+		   {a: '' for a in "abcdefg"}]   #ties
+	
+	SPAN = {"grace": False,
+			"slur": False,
+			"dynamicvar": False}
+	
+	DELAY = {"dynamic": '',
+			 "dynamicvar": ''}
 
 def Tokenise(s):
 	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
@@ -231,7 +242,9 @@ def Bar(line):
 	
 def Key(line):
 	printOut("\set Staff.keySignature = #`( %s)\n\t" % (" ".join(["(%d . %s) " % ("CDEFGAB".index(a[0]), [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in line["Signature"]]) if line["Signature"][0] != "C" else '', ))
-	KEY[0].update([(a[0].lower(), a[1]) for a in line["Signature"]])
+	KEY[0] = {a: 'n' for a in "abcdefg"}
+	if line["Signature"][0] != "C":
+		KEY[0].update([(a[0].lower(), a[1]) for a in line["Signature"]])
 	KEY[1].update(KEY[0])
 
 def Time(line):
@@ -267,13 +280,22 @@ def StaffProperties(line):
                   "Single": "|",
                   "Double": "||",
                   "Open (hidden)": ""}.get(line["EndingBar"][0],"|.")
-		printErr(ENDBAR)
+
+def AddStaff(line):
+	global STAFFADDED
+	if STAFFADDED:
+		printOut("\\bar \"%s\"}\n}\\new Staff{\n\t\\relative b\'{\n\t" % (ENDBAR,))
 	
+	STAFFADDED = True
+	Reset()
+
+Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
 	printOut(HEADER)
 	for line in (Tokenise(a[:-1]) for a in f if a[0] == '|' ):
 		#faking switch case
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
 	
-	printOut("\\bar \"%s\"\n}\n" % (ENDBAR,))
+	printOut("\\bar \"%s\"" % (ENDBAR,))
+	printOut(FOOTER)
 
