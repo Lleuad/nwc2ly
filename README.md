@@ -3,9 +3,9 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 
 ### Currently handles (nwc version 2.75):
 * notes and rests (except chords)
-* all bar types
+* all bar types (including EndingBar)
 * key and time signatures
-* clefs (except percussion)
+* clefs
 
 ### Usage
 save to file:
