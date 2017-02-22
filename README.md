@@ -12,4 +12,4 @@ save to file:
 `python ./nwc2ly.py nwctextfile.nwctxt > lilypondfile.ly`
 
 pipe directly into lilypond:
-`python ./nwc2ly.py nwctextfile.nwctxt | lilypond --pdf - -o pdfout.pdf`
+`python ./nwc2ly.py nwctextfile.nwctxt | lilypond --pdf -o pdfout.pdf -`
