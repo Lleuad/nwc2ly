@@ -9,6 +9,7 @@ HEADER = """\
 \\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
 
+\\score{
 << \\new Staff{
 	\\relative b\'{
 	"""
@@ -16,6 +17,7 @@ HEADER = """\
 FOOTER = """\
 }
 }>>
+}
 """
 
 STAFFADDED = False
@@ -27,17 +29,44 @@ NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "Alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
          "Percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
-SWITCH = {"Note":            lambda : Expression(line,'note'),
+SWITCH = {"Editor":          lambda : '',
+          "SongInfo":        lambda : '',
+          "PgSetup":         lambda : '',
+          "Font":            lambda : '',
+          "PgMargins":       lambda : '',
+          "StaffInstrument": lambda : '',
+          "Note":            lambda : Expression(line,'note'),
           "Rest":            lambda : Expression(line,'rest'),
           "Bar":             lambda : Bar(line),
           "Key":             lambda : Key(line),
           "TimeSig":         lambda : Time(line),
           "Clef":            lambda : Clef(line),
           "StaffProperties": lambda : StaffProperties(line),
-          "AddStaff":        lambda : AddStaff(line)}
+          "AddStaff":        lambda : AddStaff(line),
+          "Text":            lambda : Text(line)}
+
+#Tempo
+#TempoVariance
+#Dynamic
+#DynamicVariance
+#Chord
+#Text
+
+FONT = {"StaffItalic":   "\\abs-fontsize #10 \\bold\\italic",
+        "StaffBold":     "\\abs-fontsize #8 \\bold",
+		"StaffLyric":    "\\abs-fontsize #7 ",
+		"PageTitleText": "\\abs-fontsize #24 \\bold",
+		"PageText":      "\\abs-fontsize #12 ",
+		"PageSmallText": "\\abs-fontsize #8 ",
+		"User1":         "\\abs-fontsize #8 ",
+		"User2":         "\\abs-fontsize #8 ",
+		"User3":         "\\abs-fontsize #8 ",
+		"User4":         "\\abs-fontsize #8 ",
+		"User5":         "\\abs-fontsize #8 ",
+		"User6":         "\\abs-fontsize #8 "}
 
 def Reset():
-	global PREVNOTE, TIME, NUMTIWESIG, ENDBAR, CLEF, KEY, SPAN, DELAY
+	global PREVNOTE, TIME, NUMTIMESIG, ENDBAR, CLEF, KEY, SPAN, DELAY
 	PREVNOTE = [0, ""] #pos, dur
 	TIME = '4/4'
 	NUMTIMESIG = False
@@ -288,6 +317,9 @@ def AddStaff(line):
 	
 	STAFFADDED = True
 	Reset()
+
+def Text(line):
+	printOut("<>%c\\markup%s%s" % ('_' if line["Pos"][0][0] == '-' else '^', FONT[line["Font"][0]], line["Text"][0]))
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
