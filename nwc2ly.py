@@ -8,6 +8,14 @@ HEADER = """\
 \\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")
 \\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
+caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #"scripts.caesura.straight" \\breathe}
+accel = \\markup\\italic\"accel.\"
+allarg = \\markup\\italic\"allarg.\"
+rall = \\markup\\italic\"rall.\"
+ritard = \\markup\\italic\"ritard.\"
+rit = \\markup\\italic\"rit.\"
+rubato = \\markup\\italic\"rubato\"
+string = \\markup\\italic\"string.\"
 
 \\score{
 << \\new Staff{
@@ -19,6 +27,19 @@ FOOTER = """\
 }>>
 }
 """
+
+FONT = {"StaffItalic":   "\\abs-fontsize #10 \\bold\\italic",
+        "StaffBold":     "\\abs-fontsize #8 \\bold",
+        "StaffLyric":    "\\abs-fontsize #7 ",
+        "PageTitleText": "\\abs-fontsize #24 \\bold",
+        "PageText":      "\\abs-fontsize #12 ",
+        "PageSmallText": "\\abs-fontsize #8 ",
+        "User1":         "\\abs-fontsize #8 ",
+        "User2":         "\\abs-fontsize #8 ",
+        "User3":         "\\abs-fontsize #8 ",
+        "User4":         "\\abs-fontsize #8 ",
+        "User5":         "\\abs-fontsize #8 ",
+        "User6":         "\\abs-fontsize #8 "}
 
 STAFFADDED = False
 CLEFDIFF = {"Treble": 0, "Bass": 12, "Tenor": 8, "Alto": 6, "Percussion": 6}
@@ -35,7 +56,7 @@ SWITCH = {"Editor":          lambda : '',
           "Font":            lambda : '',
           "PgMargins":       lambda : '',
           "StaffInstrument": lambda : '',
-          "Note":            lambda : Expression(line,'note'),
+          "Note":            lambda : Expression(line,'note'), #note heads
           "Rest":            lambda : Expression(line,'rest'),
           "Bar":             lambda : Bar(line),
           "Key":             lambda : Key(line),
@@ -43,27 +64,21 @@ SWITCH = {"Editor":          lambda : '',
           "Clef":            lambda : Clef(line),
           "StaffProperties": lambda : StaffProperties(line),
           "AddStaff":        lambda : AddStaff(line),
-          "Text":            lambda : Text(line)}
+          "Text":            lambda : Text(line),
+          "Dynamic":         lambda : Dynamic(line),
+          "DynamicVariance": lambda : DynamicVar(line),
+          "TempoVariance":   lambda : TempoVar(line)}
 
 #Tempo
 #TempoVariance
-#Dynamic
-#DynamicVariance
 #Chord
-#Text
+#RestChord
+#RestMultiBar
 
-FONT = {"StaffItalic":   "\\abs-fontsize #10 \\bold\\italic",
-        "StaffBold":     "\\abs-fontsize #8 \\bold",
-		"StaffLyric":    "\\abs-fontsize #7 ",
-		"PageTitleText": "\\abs-fontsize #24 \\bold",
-		"PageText":      "\\abs-fontsize #12 ",
-		"PageSmallText": "\\abs-fontsize #8 ",
-		"User1":         "\\abs-fontsize #8 ",
-		"User2":         "\\abs-fontsize #8 ",
-		"User3":         "\\abs-fontsize #8 ",
-		"User4":         "\\abs-fontsize #8 ",
-		"User5":         "\\abs-fontsize #8 ",
-		"User6":         "\\abs-fontsize #8 "}
+###USER SETTINGS
+# strict beaming
+# block rest articulation
+###
 
 def Reset():
 	global PREVNOTE, TIME, NUMTIMESIG, ENDBAR, CLEF, KEY, SPAN, DELAY
@@ -82,16 +97,15 @@ def Reset():
 			"dynamicvar": False}
 	
 	DELAY = {"dynamic": '',
-			 "dynamicvar": ''}
+			 "dynamicvar": '',
+			 "tempovar": '',
+			 "fermata": ''}
 
-def Tokenise(s):
-	return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
+def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
-def printOut(s):
-	print(s, end='', file=OF)
+def printOut(s): print(s, end='', file=OF)
 
-def printErr(s):
-	print("\r\tError: %s" % (s,), file=ERR)
+def printErr(s): print("\r\tError: %s" % (s,), file=ERR)
 
 def Pitch(pos):
 	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
@@ -199,6 +213,20 @@ def Expression(line, expr):
 	if dur['marcato']:
 		note += '-^'
 	
+	#dynamics
+	if DELAY["fermata"]:
+		note += DELAY["fermata"]
+		DELAY["fermata"] = ''
+	if DELAY["dynamic"]:
+		note += DELAY["dynamic"]
+		DELAY["dynamic"] = ''
+	if DELAY["dynamicvar"]:
+		note += DELAY["dynamicvar"]
+		DELAY["dynamicvar"] = ''
+	if DELAY["tempovar"]:
+		note += DELAY["tempovar"]
+		DELAY["tempovar"] = ''
+	
 	#triplet off
 	if dur['triplet'] == 'end':
 		note += '}'
@@ -239,7 +267,6 @@ def Note(pitch, dur):
 	return note
 
 def Rest(dur):
-	
 	#note name
 	note = 'R' if dur['length'] == '1' else 'r'
 	
@@ -254,6 +281,13 @@ def Rest(dur):
 	return note
 
 def Bar(line):
+	if DELAY["fermata"]:
+		if DELAY["fermata"][0] == '_':
+			printOut("\\once\override Score.RehearsalMark.direction = #-1 \\mark\\markup\\musicglyph #\"scripts.dfermata\"")
+		else:
+			printOut("\\mark\markup\musicglyph #\"scripts.ufermata\" ")
+		DELAY["fermata"] = ''
+	
 	printOut("%s\n\t" % (
         {"Single": "|",
          "Double": "\\bar\"||\"",
@@ -320,6 +354,42 @@ def AddStaff(line):
 
 def Text(line):
 	printOut("<>%c\\markup%s%s" % ('_' if line["Pos"][0][0] == '-' else '^', FONT[line["Font"][0]], line["Text"][0]))
+
+def Dynamic(line):
+	if DELAY["dynamic"] == '\\f' and line["Style"][0] == 'p':
+		DELAY["dynamic"] = '\\fp'
+	else:
+		DELAY["dynamic"] = "\\%s" % (line["Style"][0],)
+
+def DynamicVar(line):
+	if line["Style"][0] == "Crescendo":
+		DELAY["dynamicvar"] = "\\cresc"
+	elif line["Style"][0] == "Decrescendo":
+		DELAY["dynamicvar"] = "\\decresc"
+	elif line["Style"][0] == "Diminuendo":
+		DELAY["dynamicvar"] = "\\dim"
+	elif line["Style"][0] == "Rinforzando":
+		DELAY["dynamic"] = "\\rfz"
+	elif line["Style"][0] == "Sforzando":
+		DELAY["dynamic"] = "\\sfz"
+
+def TempoVar(line):
+	if line["Style"][0] == "Breath Mark":
+		printOut("\\breathe ")
+	elif line["Style"][0] == "Caesura":
+		printOut("\\caesura ")
+	elif line["Style"][0] == "Fermata":
+		DELAY["fermata"] = "%s\\fermata" % ('_' if line["Pos"][0][0] == '-' else '', )
+	else:
+		DELAY["tempovar"] += "%c%s" % ('_' if line["Pos"][0][0] == '-' else '^', 
+		                               {"Accelerando": "\\accel",
+		                                "Allargando": "\\allarg",
+		                                "Rallentando": "\\rall",
+		                                "Ritardando": "\\ritard",
+		                                "Ritenuto": "\\rit",
+		                                "Rubato": "\\rubato",
+		                                "Stringendo": "\\string"}[line["Style"][0]]
+		                              )
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
