@@ -7,6 +7,8 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * key and time signatures
 * clefs
 * text
+* all dynamics and dynamic variance (cresc., rfz, etc.)
+* all tempo variance (rall., string., etc.)
 
 ### Usage
 save to file:
