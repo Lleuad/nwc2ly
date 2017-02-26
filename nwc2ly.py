@@ -1,5 +1,5 @@
 import sys
-IF = sys.argv[1] if sys.argv.__len__() > 1 else "SONG1.nwctxt"
+IF = sys.argv[1] if sys.argv.__len__() > 1 else "nwctxt/SONG1.nwctxt"
 OF = sys.stdout
 ERR = sys.stderr
 HEADER = """\
@@ -19,6 +19,7 @@ string = \\markup\\italic\"string.\"
 
 \\score{
 << \\new Staff{
+	\\compressFullBarRests
 	\\relative b\'{
 	"""
 
@@ -67,13 +68,12 @@ SWITCH = {"Editor":          lambda : '',
           "Text":            lambda : Text(line),
           "Dynamic":         lambda : Dynamic(line),
           "DynamicVariance": lambda : DynamicVar(line),
-          "TempoVariance":   lambda : TempoVar(line)}
+          "Tempo":           lambda : Tempo(line),
+          "TempoVariance":   lambda : TempoVar(line),
+          "RestMultiBar":    lambda : MultiBarRest(line)}
 
-#Tempo
-#TempoVariance
 #Chord
 #RestChord
-#RestMultiBar
 
 ###USER SETTINGS
 # strict beaming
@@ -347,7 +347,7 @@ def StaffProperties(line):
 def AddStaff(line):
 	global STAFFADDED
 	if STAFFADDED:
-		printOut("\\bar \"%s\"}\n}\\new Staff{\n\t\\relative b\'{\n\t" % (ENDBAR,))
+		printOut("\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,))
 	
 	STAFFADDED = True
 	Reset()
@@ -373,6 +373,12 @@ def DynamicVar(line):
 	elif line["Style"][0] == "Sforzando":
 		DELAY["dynamic"] = "\\sfz"
 
+def Tempo(line):
+	printOut("\\tempo")
+	if "Text" in line:
+		printOut(line["Text"][0])
+	printOut("%s=%s " % ({"Eighth":"8", "Eighth Dotted":"8.", "Quarter":"4", "Quarter Dotted":"4.", "Half":"2", "Half Dotted":"2."}[line.get("Base",["Quarter"])[0]], line["Tempo"][0]))
+
 def TempoVar(line):
 	if line["Style"][0] == "Breath Mark":
 		printOut("\\breathe ")
@@ -390,6 +396,9 @@ def TempoVar(line):
 		                                "Rubato": "\\rubato",
 		                                "Stringendo": "\\string"}[line["Style"][0]]
 		                              )
+
+def MultiBarRest(line):
+	printOut("R1*%s*%s " % (TIME, line["NumBars"][0]))
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
