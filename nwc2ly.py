@@ -17,16 +17,16 @@ rit = \\markup\\italic\"rit.\"
 rubato = \\markup\\italic\"rubato\"
 string = \\markup\\italic\"string.\"
 
-\\score{
-<< \\new Staff{
+\\score{<<
+\\new Staff{
 	\\compressFullBarRests
 	\\relative b\'{
 	"""
 
 FOOTER = """\
 }
-}>>
 }
+>>}
 """
 
 FONT = {"StaffItalic":   "\\abs-fontsize #10 \\bold\\italic",
@@ -70,7 +70,8 @@ SWITCH = {"Editor":          lambda : '',
           "DynamicVariance": lambda : DynamicVar(line),
           "Tempo":           lambda : Tempo(line),
           "TempoVariance":   lambda : TempoVar(line),
-          "RestMultiBar":    lambda : MultiBarRest(line)}
+          "RestMultiBar":    lambda : MultiBarRest(line),
+          "SustainPedal":    lambda : Sustain(line)}
 
 #Chord
 #RestChord
@@ -99,7 +100,8 @@ def Reset():
 	DELAY = {"dynamic": '',
 			 "dynamicvar": '',
 			 "tempovar": '',
-			 "fermata": ''}
+			 "fermata": '',
+			 "sustain": ''}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
@@ -226,6 +228,11 @@ def Expression(line, expr):
 	if DELAY["tempovar"]:
 		note += DELAY["tempovar"]
 		DELAY["tempovar"] = ''
+	
+	#sustain pedal
+	if DELAY["sustain"]:
+		note += DELAY["sustain"]
+		DELAY["sustain"] = ''
 	
 	#triplet off
 	if dur['triplet'] == 'end':
@@ -399,6 +406,9 @@ def TempoVar(line):
 
 def MultiBarRest(line):
 	printOut("R1*%s*%s " % (TIME, line["NumBars"][0]))
+
+def Sustain(line):
+	DELAY["sustain"] = "\\sustainOff" if line.get("Status", ["Down"])[0] == "Released" else "\\sustainOn"
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
