@@ -2,13 +2,13 @@
 A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 
 ### Currently handles (nwc version 2.75):
-* notes and rests (except chords, multimeasure rest and special note heads)
+* notes and rests (except chords and special note heads)
 * all bar types (including EndingBar)
 * key and time signatures
 * clefs
 * text
 * all dynamics and dynamic variance (cresc., rfz, etc.)
-* all tempo variance (rall., string., etc.)
+* all tempo variance (rall., string., etc.) and tempo marking
 
 ### Usage
 save to file:
