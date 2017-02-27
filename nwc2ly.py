@@ -59,6 +59,7 @@ SWITCH = {"Editor":          lambda : '',
           "StaffInstrument": lambda : '',
           "Note":            lambda : Expression(line,'note'), #note heads
           "Rest":            lambda : Expression(line,'rest'),
+          "Chord":           lambda : Expression(line,'chord'),
           "Bar":             lambda : Bar(line),
           "Key":             lambda : Key(line),
           "TimeSig":         lambda : Time(line),
@@ -175,8 +176,11 @@ def Dur(dur):
 	return duration
 
 def Expression(line, expr):
-	if expr in ['note']:
+	if expr == 'note':
 		pitch = Pitch(line['Pos'][0])
+	elif expr == 'chord':
+		pitch = [Pitch(a) for a in line['Pos']]
+	
 	dur = Dur(line['Dur'])
 	note = ""
 	
@@ -194,6 +198,8 @@ def Expression(line, expr):
 		note += Note(pitch, dur)
 	elif expr == 'rest':
 		note += Rest(dur)
+	elif expr == 'chord':
+		note += Chord(pitch, dur)
 	
 	#slur
 	if dur['slur'] and not SPAN['slur']:
@@ -270,6 +276,44 @@ def Note(pitch, dur):
 		KEY[2][name] = KEY[2][name] or KEY[1][name]
 	else:
 		KEY[2][name] = ''
+	
+	return note
+
+def Chord(pitchlist, dur):
+	note = "<"
+	localprevnote = PREVNOTE[0]
+	
+	for pitch in pitchlist:
+		name = NOTES[CLEF[0]][pitch['pitch'] % 7]
+		
+		#note name
+		note += name
+		if pitch['accidental'] != '':
+			KEY[1][name] = pitch['accidental']
+		
+		note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index( KEY[2][name] or KEY[1][name] )]
+		
+		#octave shift
+		if abs(pitch['pitch'] - localprevnote) > 3:
+			note += ('\'' if pitch['pitch'] > localprevnote else ',') * ((abs(pitch['pitch'] - localprevnote) + 3) // 7)
+		localprevnote = pitch['pitch']
+		
+		#tie
+		if pitch['tie']:
+			note += '~'
+			KEY[2][name] = KEY[2][name] or KEY[1][name]
+		else:
+			KEY[2][name] = ''
+		
+		note += ' '
+	
+	PREVNOTE[0] = pitchlist[0]['pitch']
+	note = note[:-1] + ">"
+	
+	if dur['length'] != PREVNOTE[1]:
+		note += dur['length']
+		PREVNOTE[1] = dur['length']
+	
 	
 	return note
 
