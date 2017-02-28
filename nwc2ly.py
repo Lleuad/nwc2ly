@@ -17,6 +17,10 @@ rit = \\markup\\italic\"rit.\"
 rubato = \\markup\\italic\"rubato\"
 string = \\markup\\italic\"string.\"
 
+staffitalic=\\italic\\bold\\large
+staffbold=\\bold\\normalsize
+stafflyric=\\normalsize
+
 \\score{<<
 \\new Staff{
 	\\compressFullBarRests
@@ -29,9 +33,9 @@ FOOTER = """\
 >>}
 """
 
-FONT = {"StaffItalic":   "\\abs-fontsize #10 \\bold\\italic",
-        "StaffBold":     "\\abs-fontsize #8 \\bold",
-        "StaffLyric":    "\\abs-fontsize #7 ",
+FONT = {"StaffItalic":   "\\staffitalic",
+        "StaffBold":     "\\staffbold",
+        "StaffLyric":    "\\stafflyric",
         "PageTitleText": "\\abs-fontsize #24 \\bold",
         "PageText":      "\\abs-fontsize #12 ",
         "PageSmallText": "\\abs-fontsize #8 ",
@@ -57,6 +61,8 @@ SWITCH = {"Editor":          lambda : '',
           "Font":            lambda : '',
           "PgMargins":       lambda : '',
           "StaffInstrument": lambda : '',
+          "MPC":             lambda : '',
+          "User":            lambda : '',
           "Note":            lambda : Expression(line,'note'), #note heads
           "Rest":            lambda : Expression(line,'rest'),
           "Chord":           lambda : Expression(line,'chord'),
@@ -72,10 +78,15 @@ SWITCH = {"Editor":          lambda : '',
           "Tempo":           lambda : Tempo(line),
           "TempoVariance":   lambda : TempoVar(line),
           "RestMultiBar":    lambda : MultiBarRest(line),
-          "SustainPedal":    lambda : Sustain(line)}
+          "SustainPedal":    lambda : Sustain(line),
+          "PerformanceStyle":lambda : PerformStyle(line)}
 
-#Chord
+#Chord (multi voice)
 #RestChord
+#Lyrics
+#Flow
+#Ending
+#Instrument (as text only?)
 
 ###USER SETTINGS
 # strict beaming
@@ -91,18 +102,18 @@ def Reset():
 	CLEF = ["Treble", ""]
 	
 	KEY = [{a: 'n' for a in "abcdefg"},  #key sig
-		   {a: 'n' for a in "abcdefg"},  #measure
-		   {a: '' for a in "abcdefg"}]   #ties
+	       {a: 'n' for a in "abcdefg"},  #measure
+	       {a: '' for a in "abcdefg"}]   #ties
 	
 	SPAN = {"grace": False,
-			"slur": False,
-			"dynamicvar": False}
+	        "slur": False,
+	        "dynamicvar": False}
 	
 	DELAY = {"dynamic": '',
-			 "dynamicvar": '',
-			 "tempovar": '',
-			 "fermata": '',
-			 "sustain": ''}
+	         "dynamicvar": '',
+	         "tempovar": '',
+	         "fermata": '',
+	         "sustain": ''}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
@@ -131,14 +142,14 @@ def Pitch(pos):
 
 def Dur(dur):
 	duration = {'length': '4',
-                'triplet': None,
-                'grace': False,
-                'staccato': False,
-                'staccatissimo': False,
-                'tenuto': False,
-                'marcato': False,
-                'accent': False,
-                'slur': False}
+	            'triplet': None,
+	            'grace': False,
+	            'staccato': False,
+	            'staccatissimo': False,
+	            'tenuto': False,
+	            'marcato': False,
+	            'accent': False,
+	            'slur': False}
 	if dur[0] == 'Whole':
 		duration['length'] = '1'
 	elif dur[0] == 'Half':
@@ -340,17 +351,17 @@ def Bar(line):
 		DELAY["fermata"] = ''
 	
 	printOut("%s\n\t" % (
-        {"Single": "|",
-         "Double": "\\bar\"||\"",
-         "BrokenSingle": "\\bar\"!\"",
-         "BrokenDouble": "\\bar\"!!\"",
-         "SectionOpen": "\\bar\".|\"",
-         "SectionClose": "\\bar\"|.\"",
-         "LocalRepeatOpen": "\\bar\"||:\"",
-         "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
-         "MasterRepeatOpen": "\\bar\".|:\"",
-         "MasterRepeatClose": "\\bar\":|.\""
-        }.get(line.get("Style",["Single"])[0],"|"),
+	    {"Single": "|",
+	     "Double": "\\bar\"||\"",
+	     "BrokenSingle": "\\bar\"!\"",
+	     "BrokenDouble": "\\bar\"!!\"",
+	     "SectionOpen": "\\bar\".|\"",
+	     "SectionClose": "\\bar\"|.\"",
+	     "LocalRepeatOpen": "\\bar\"||:\"",
+	     "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
+	     "MasterRepeatOpen": "\\bar\".|:\"",
+	     "MasterRepeatClose": "\\bar\":|.\""
+	    }.get(line.get("Style",["Single"])[0],"|"),
 	))
 	KEY[1].update(KEY[0])
 	
@@ -390,10 +401,10 @@ def StaffProperties(line):
 	global ENDBAR
 	if "EndingBar" in line:
 		ENDBAR = {"Section Close": "|.",
-                  "Master Repeat Close": ":|.",
-                  "Single": "|",
-                  "Double": "||",
-                  "Open (hidden)": ""}.get(line["EndingBar"][0],"|.")
+	              "Master Repeat Close": ":|.",
+	              "Single": "|",
+	              "Double": "||",
+	              "Open (hidden)": ""}.get(line["EndingBar"][0],"|.")
 
 def AddStaff(line):
 	global STAFFADDED
@@ -453,6 +464,33 @@ def MultiBarRest(line):
 
 def Sustain(line):
 	DELAY["sustain"] = "\\sustainOff" if line.get("Status", ["Down"])[0] == "Released" else "\\sustainOn"
+
+def PerformStyle(line):
+	printOut("\\mark\\markup\\staffitalic\"%s\" " % (
+	   {"Ad Libitum": "ad lib.",
+	    "Animato": "animato",
+	    "Cantabile": "cantabile",
+	    "Con brio": "con brio",
+	    "Dolce": "dolce",
+	    "Espressivo": "espress.",
+	    "Grazioso": "grazioso",
+	    "Legato": "legato",
+	    "Maestoso": "maestoso",
+	    "Marcato": "marc.",
+	    "Meno mosso": "meno mosso",
+	    "Poco a poco": "poco a poco",
+	    "Pi mosso": "più mosso",
+	    "Semplice": "semplice",
+	    "Simile": "simile",
+	    "Solo": "solo",
+	    "Sostenuto": "sostenuto",
+	    "Sotto Voce": "sotto voce",
+	    "Staccato": "staccato",
+	    "Subito": "subito",
+	    "Tenuto": "tenuto",
+	    "Tutti": "tutti",
+	    "Volta Subito": "volta subito"}[line["Style"][0]],)
+	)
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
