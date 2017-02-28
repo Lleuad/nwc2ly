@@ -10,6 +10,7 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * all dynamics and dynamic variance (cresc., rfz, etc.)
 * all tempo variance (rall., string., etc.) and tempo marking
 * sustain pedal marks
+* all performance styles (sostenuto, maestoso, etc.)
 
 ### Usage
 save to file:
