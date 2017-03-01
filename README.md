@@ -12,6 +12,12 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * sustain pedal marks
 * all performance styles (sostenuto, maestoso, etc.)
 
+### Still working on:
+* Flow markings (coda, D.C., etc.)
+* lyrics
+* special endings
+* multivoice chords and 'rest cords'
+
 ### Usage
 save to file:
 `python ./nwc2ly.py nwctextfile.nwctxt > lilypondfile.ly`
