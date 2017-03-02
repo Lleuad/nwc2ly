@@ -1,4 +1,5 @@
-import sys
+import sys, table
+
 IF = sys.argv[1] if sys.argv.__len__() > 1 else "nwctxt/SONG1.nwctxt"
 OF = sys.stdout
 ERR = sys.stderr
@@ -9,13 +10,6 @@ HEADER = """\
 \\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
 caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #"scripts.caesura.straight" \\breathe}
-accel = \\markup\\italic\"accel.\"
-allarg = \\markup\\italic\"allarg.\"
-rall = \\markup\\italic\"rall.\"
-ritard = \\markup\\italic\"ritard.\"
-rit = \\markup\\italic\"rit.\"
-rubato = \\markup\\italic\"rubato\"
-string = \\markup\\italic\"string.\"
 
 staffitalic=\\italic\\bold\\large
 staffbold=\\bold\\normalsize
@@ -350,19 +344,7 @@ def Bar(line):
 			printOut("\\mark\markup\musicglyph #\"scripts.ufermata\" ")
 		DELAY["fermata"] = ''
 	
-	printOut("%s\n\t" % (
-	    {"Single": "|",
-	     "Double": "\\bar\"||\"",
-	     "BrokenSingle": "\\bar\"!\"",
-	     "BrokenDouble": "\\bar\"!!\"",
-	     "SectionOpen": "\\bar\".|\"",
-	     "SectionClose": "\\bar\"|.\"",
-	     "LocalRepeatOpen": "\\bar\"||:\"",
-	     "LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
-	     "MasterRepeatOpen": "\\bar\".|:\"",
-	     "MasterRepeatClose": "\\bar\":|.\""
-	    }.get(line.get("Style",["Single"])[0],"|"),
-	))
+	printOut( "%s\n\t" % (table.bar.get(line.get("Style",["Single"])[0],"|"),) )
 	KEY[1].update(KEY[0])
 	
 def Key(line):
@@ -400,11 +382,7 @@ def Clef(line):
 def StaffProperties(line):
 	global ENDBAR
 	if "EndingBar" in line:
-		ENDBAR = {"Section Close": "|.",
-	              "Master Repeat Close": ":|.",
-	              "Single": "|",
-	              "Double": "||",
-	              "Open (hidden)": ""}.get(line["EndingBar"][0],"|.")
+		ENDBAR = table.endbar.get(line["EndingBar"][0],"|.")
 
 def AddStaff(line):
 	global STAFFADDED
@@ -448,16 +426,8 @@ def TempoVar(line):
 		printOut("\\caesura ")
 	elif line["Style"][0] == "Fermata":
 		DELAY["fermata"] = "%s\\fermata" % ('_' if line["Pos"][0][0] == '-' else '', )
-	else:
-		DELAY["tempovar"] += "%c%s" % ('_' if line["Pos"][0][0] == '-' else '^', 
-		                               {"Accelerando": "\\accel",
-		                                "Allargando": "\\allarg",
-		                                "Rallentando": "\\rall",
-		                                "Ritardando": "\\ritard",
-		                                "Ritenuto": "\\rit",
-		                                "Rubato": "\\rubato",
-		                                "Stringendo": "\\string"}[line["Style"][0]]
-		                              )
+	elif line["Style"][0] in table.tempovar:
+		DELAY["tempovar"] += "%c\\markup\\italic\"%s\"" % ('_' if line["Pos"][0][0] == '-' else '^', table.tempovar[line["Style"][0]])
 
 def MultiBarRest(line):
 	printOut("R1*%s*%s " % (TIME, line["NumBars"][0]))
@@ -466,31 +436,8 @@ def Sustain(line):
 	DELAY["sustain"] = "\\sustainOff" if line.get("Status", ["Down"])[0] == "Released" else "\\sustainOn"
 
 def PerformStyle(line):
-	printOut("\\mark\\markup\\staffitalic\"%s\" " % (
-	   {"Ad Libitum": "ad lib.",
-	    "Animato": "animato",
-	    "Cantabile": "cantabile",
-	    "Con brio": "con brio",
-	    "Dolce": "dolce",
-	    "Espressivo": "espress.",
-	    "Grazioso": "grazioso",
-	    "Legato": "legato",
-	    "Maestoso": "maestoso",
-	    "Marcato": "marc.",
-	    "Meno mosso": "meno mosso",
-	    "Poco a poco": "poco a poco",
-	    "Pi mosso": "più mosso",
-	    "Semplice": "semplice",
-	    "Simile": "simile",
-	    "Solo": "solo",
-	    "Sostenuto": "sostenuto",
-	    "Sotto Voce": "sotto voce",
-	    "Staccato": "staccato",
-	    "Subito": "subito",
-	    "Tenuto": "tenuto",
-	    "Tutti": "tutti",
-	    "Volta Subito": "volta subito"}[line["Style"][0]],)
-	)
+	if line["Style"][0] in table.performstyle:
+		printOut( "\\mark\\markup\\staffitalic\"%s\" " % (table.performstyle[line["Style"][0]],) )
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
