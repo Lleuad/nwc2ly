@@ -6,7 +6,6 @@ bar = {
 "SectionOpen": "\\bar\".|\"",
 "SectionClose": "\\bar\"|.\"",
 "LocalRepeatOpen": "\\bar\"||:\"",
-"LocalRepeatClose": "\\mark\\markup\\small\"(%s)\"\\bar\":||\"" % (line.get("Repeat",["2"])[0],),
 "MasterRepeatOpen": "\\bar\".|:\"",
 "MasterRepeatClose": "\\bar\":|.\""}
 
@@ -26,7 +25,7 @@ tempovar = {
 "Rubato": "rubato",
 "Stringendo": "string."}
 
-performstyle ={
+performstyle = {
 "Ad Libitum": "ad lib.",
 "Animato": "animato",
 "Cantabile": "cantabile",
@@ -39,7 +38,7 @@ performstyle ={
 "Marcato": "marc.",
 "Meno mosso": "meno mosso",
 "Poco a poco": "poco a poco",
-"Pi mosso": "più mosso",
+"Pi\\xf9 mosso": "più mosso",
 "Semplice": "semplice",
 "Simile": "simile",
 "Solo": "solo",
@@ -50,3 +49,15 @@ performstyle ={
 "Tenuto": "tenuto",
 "Tutti": "tutti",
 "Volta Subito": "volta subito"}
+
+flow = {
+"Coda": "{\\musicglyph #\"scripts.coda\"}",
+"Segno": "{\\musicglyph #\"scripts.segno\"}",
+"Fine": "\"fine\"",
+"ToCoda": "\\musicglyph #\"scripts.coda\" ",
+"DaCapo": "\"D.C.\"",
+"DCalCoda": "{\"D.C. al \"\\raise #1.0 \\musicglyph #\"scripts.coda\"}",
+"DCalFine": "\"D.C. al fine\"",
+"DalSegno": "\"D.S.\"",
+"DSalCoda": "{\"D.S. al\"\\raise #1.0 \\musicglyph #\"scripts.coda\"}",
+"DSalFine": "\"D.S. al fine\""}

@@ -11,10 +11,6 @@ HEADER = """\
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
 caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #"scripts.caesura.straight" \\breathe}
 
-staffitalic=\\italic\\bold\\large
-staffbold=\\bold\\normalsize
-stafflyric=\\normalsize
-
 \\score{<<
 \\new Staff{
 	\\compressFullBarRests
@@ -27,9 +23,9 @@ FOOTER = """\
 >>}
 """
 
-FONT = {"StaffItalic":   "\\staffitalic",
-        "StaffBold":     "\\staffbold",
-        "StaffLyric":    "\\stafflyric",
+FONT = {"StaffItalic":   "\\italic\\bold\\large",
+        "StaffBold":     "\\bold\\normalsize",
+        "StaffLyric":    "\\normalsize",
         "PageTitleText": "\\abs-fontsize #24 \\bold",
         "PageText":      "\\abs-fontsize #12 ",
         "PageSmallText": "\\abs-fontsize #8 ",
@@ -73,7 +69,8 @@ SWITCH = {"Editor":          lambda : '',
           "TempoVariance":   lambda : TempoVar(line),
           "RestMultiBar":    lambda : MultiBarRest(line),
           "SustainPedal":    lambda : Sustain(line),
-          "PerformanceStyle":lambda : PerformStyle(line)}
+          "PerformanceStyle":lambda : PerformStyle(line),
+          "Flow":            lambda : Flow(line)}
 
 #Chord (multi voice)
 #RestChord
@@ -339,12 +336,15 @@ def Rest(dur):
 def Bar(line):
 	if DELAY["fermata"]:
 		if DELAY["fermata"][0] == '_':
-			printOut("\\once\override Score.RehearsalMark.direction = #-1 \\mark\\markup\\musicglyph #\"scripts.dfermata\"")
+			printOut("\\once\\override Score.RehearsalMark.direction = #-1 \\mark\\markup\\musicglyph #\"scripts.dfermata\" ")
 		else:
-			printOut("\\mark\markup\musicglyph #\"scripts.ufermata\" ")
+			printOut("\\mark\\markup\\musicglyph #\"scripts.ufermata\" ")
 		DELAY["fermata"] = ''
 	
-	printOut( "%s\n\t" % (table.bar.get(line.get("Style",["Single"])[0],"|"),) )
+	if line.get("Style",["Single"])[0] == "LocalRepeatClose":
+		printOut( "\\mark\\markup\\small\"(%s)\"\\bar\":||\"\n\t" % (line.get("Repeat",["2"])[0],) )
+	else:
+		printOut( "%s\n\t" % (table.bar.get(line.get("Style",["Single"])[0],"|"),) )
 	KEY[1].update(KEY[0])
 	
 def Key(line):
@@ -437,7 +437,11 @@ def Sustain(line):
 
 def PerformStyle(line):
 	if line["Style"][0] in table.performstyle:
-		printOut( "\\mark\\markup\\staffitalic\"%s\" " % (table.performstyle[line["Style"][0]],) )
+		printOut( "\\mark\\markup\\italic\\bold\\large\"%s\" " % (table.performstyle[line["Style"][0]],) )
+
+def Flow(line):
+	if line["Style"][0] in table.flow:
+		printOut( "\\mark\\markup%s" % (table.flow[line["Style"][0]],) )
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
