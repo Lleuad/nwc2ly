@@ -17,6 +17,7 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * lyrics
 * special endings
 * multivoice chords and 'rest cords'
+* system connections
 
 ### Usage
 save to file:
