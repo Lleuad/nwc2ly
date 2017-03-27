@@ -14,10 +14,7 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * Flow markings (coda, D.C., etc.)
 
 ### Still working on:
-* lyrics
-* special endings
-* multivoice chords and 'rest cords'
-* system connections
+see issues
 
 ### Usage
 save to file:
