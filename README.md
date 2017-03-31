@@ -14,7 +14,7 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 * Flow markings (coda, D.C., etc.)
 
 ### Still working on:
-see issues
+see [issues](https://github.com/Lleuad/nwc2ly/issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22)
 
 ### Usage
 save to file:
