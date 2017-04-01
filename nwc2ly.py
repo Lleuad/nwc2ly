@@ -75,7 +75,6 @@ SWITCH = {"Editor":          lambda : '',
 #Chord (multi voice)
 #RestChord
 #Lyrics
-#Flow
 #Ending
 #Instrument (as text only?)
 
@@ -104,7 +103,9 @@ def Reset():
 	         "dynamicvar": '',
 	         "tempovar": '',
 	         "fermata": '',
-	         "sustain": ''}
+	         "sustain": '',
+	         "line": {},
+	         "out": ''}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
 
@@ -178,6 +179,8 @@ def Dur(dur):
 	return duration
 
 def Expression(line, expr):
+	printOut(DELAY["out"])
+	
 	if expr == 'note':
 		pitch = Pitch(line['Pos'][0])
 	elif expr == 'chord':
@@ -251,7 +254,8 @@ def Expression(line, expr):
 		SPAN['grace'] = False
 		note = '}' + note
 	
-	printOut("%s " % (note,))
+	DELAY["out"] = "%s " % (note,)
+	DELAY["line"] = line
 
 def Note(pitch, dur):
 	name = NOTES[CLEF[0]][pitch['pitch'] % 7]
@@ -334,50 +338,63 @@ def Rest(dur):
 	return note
 
 def Bar(line):
+	printOut(DELAY["out"])
+	DELAY["out"] = ''
+	
 	if DELAY["fermata"]:
 		if DELAY["fermata"][0] == '_':
-			printOut("\\once\\override Score.RehearsalMark.direction = #-1 \\mark\\markup\\musicglyph #\"scripts.dfermata\" ")
+			DELAY["out"] += "\\once\\override Score.RehearsalMark.direction = #-1 \\mark\\markup\\musicglyph #\"scripts.dfermata\" "
 		else:
-			printOut("\\mark\\markup\\musicglyph #\"scripts.ufermata\" ")
+			DELAY["out"] += "\\mark\\markup\\musicglyph #\"scripts.ufermata\" "
 		DELAY["fermata"] = ''
 	
 	if line.get("Style",["Single"])[0] == "LocalRepeatClose":
-		printOut( "\\mark\\markup\\small\"(%s)\"\\bar\":||\"\n\t" % (line.get("Repeat",["2"])[0],) )
+		DELAY["out"] += "\\mark\\markup\\small\"(%s)\"\\bar\":||\"\n\t" % (line.get("Repeat",["2"])[0],)
 	else:
-		printOut( "%s\n\t" % (table.bar.get(line.get("Style",["Single"])[0],"|"),) )
+		DELAY["out"] += "%s\n\t" % (table.bar.get(line.get("Style",["Single"])[0],"|"),)
 	KEY[1].update(KEY[0])
+	DELAY["line"] = line
 	
 def Key(line):
-	printOut("\set Staff.keySignature = #`( %s)\n\t" % (" ".join(["(%d . %s) " % ("CDEFGAB".index(a[0]), [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in line["Signature"]]) if line["Signature"][0] != "C" else '', ))
+	printOut(DELAY["out"])
+	
+	DELAY["out"] = "\set Staff.keySignature = #`( %s)\n\t" % (" ".join(["(%d . %s) " % ("CDEFGAB".index(a[0]), [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in line["Signature"]]) if line["Signature"][0] != "C" else '', )
 	KEY[0] = {a: 'n' for a in "abcdefg"}
 	if line["Signature"][0] != "C":
 		KEY[0].update([(a[0].lower(), a[1]) for a in line["Signature"]])
 	KEY[1].update(KEY[0])
+	DELAY["line"] = line
 
 def Time(line):
 	global TIME, NUMTIMESIG
 	TIME = {"Common": '4/4', "AllaBreve": '2/2'}.get(line["Signature"][0], line["Signature"][0])
+	printOut(DELAY["out"])
+	DELAY["out"] = ''
 	
 	if line['Signature'][0] in ["Common", "AllaBreve"] and NUMTIMESIG:
-		printOut("\\defaultTimeSignature ")
+		DELAY["out"] = "\\defaultTimeSignature "
 		NUMTIMESIG = False
 	elif line['Signature'][0] in ['4/4', '2/2'] and not NUMTIMESIG:
-		printOut("\\numericTimeSignature ")
+		DELAY["out"] = "\\numericTimeSignature "
 		NUMTIMESIG = True
 	
-	printOut("\\time %s\n\t" % (TIME,))
+	DELAY["out"] += "\\time %s\n\t" % (TIME,)
+	DELAY["line"] = line
 
 def Clef(line):
+	printOut(DELAY["out"])
+	
 	PREVNOTE[0] -= CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
 	CLEF[0] = line["Type"][0]
 	
 	if "OctaveShift" in line:
 		CLEF[1] = {"Octave Down": "_8", "Octave Up": "^8"}.get(line["OctaveShift"][0],"")
-		printOut("\\clef \"%s%s\" " % (CLEF[0].lower(), CLEF[1]))
+		DELAY["out"] = "\\clef \"%s%s\" " % (CLEF[0].lower(), CLEF[1])
 	else:
 		CLEF[1] = ""
-		printOut("\clef %s " % (line["Type"][0].lower(), ))
+		DELAY["out"] = "\clef %s " % (line["Type"][0].lower(), )
 	PREVNOTE[0] += CLEFDIFF[CLEF[0]] + {"_8": 7, "^8": -7, "":0}[CLEF[1]]
+	DELAY["line"] = line
 
 def StaffProperties(line):
 	global ENDBAR
@@ -386,14 +403,20 @@ def StaffProperties(line):
 
 def AddStaff(line):
 	global STAFFADDED
+	printOut(DELAY["out"])
+	
 	if STAFFADDED:
-		printOut("\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,))
+		DELAY["out"] = "\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,)
 	
 	STAFFADDED = True
 	Reset()
+	DELAY["line"] = line
 
 def Text(line):
-	printOut("<>%c\\markup%s%s" % ('_' if line["Pos"][0][0] == '-' else '^', FONT[line["Font"][0]], line["Text"][0]))
+	printOut(DELAY["out"])
+	
+	DELAY["out"] = "<>%c\\markup%s%s" % ('_' if line["Pos"][0][0] == '-' else '^', FONT[line["Font"][0]], line["Text"][0])
+	DELAY["line"] = line
 
 def Dynamic(line):
 	if DELAY["dynamic"] == '\\f' and line["Style"][0] == 'p':
@@ -414,34 +437,55 @@ def DynamicVar(line):
 		DELAY["dynamic"] = "\\sfz"
 
 def Tempo(line):
-	printOut("\\tempo")
+	printOut(DELAY["out"])
+	
+	DELAY["out"] = "\\tempo"
 	if "Text" in line:
-		printOut(line["Text"][0])
-	printOut("%s=%s " % ({"Eighth":"8", "Eighth Dotted":"8.", "Quarter":"4", "Quarter Dotted":"4.", "Half":"2", "Half Dotted":"2."}[line.get("Base",["Quarter"])[0]], line["Tempo"][0]))
+		DELAY["out"] += (line["Text"][0])
+	DELAY["out"] += "%s=%s " % ({"Eighth":"8", "Eighth Dotted":"8.", "Quarter":"4", "Quarter Dotted":"4.", "Half":"2", "Half Dotted":"2."}[line.get("Base",["Quarter"])[0]], line["Tempo"][0])
+	DELAY["line"] = line
 
 def TempoVar(line):
+	printOut(DELAY["out"])
+	DELAY["out"] = ''
+	
 	if line["Style"][0] == "Breath Mark":
-		printOut("\\breathe ")
+		DELAY["out"] = "\\breathe "
 	elif line["Style"][0] == "Caesura":
-		printOut("\\caesura ")
+		DELAY["out"] = "\\caesura "
 	elif line["Style"][0] == "Fermata":
 		DELAY["fermata"] = "%s\\fermata" % ('_' if line["Pos"][0][0] == '-' else '', )
 	elif line["Style"][0] in table.tempovar:
 		DELAY["tempovar"] += "%c\\markup\\italic\"%s\"" % ('_' if line["Pos"][0][0] == '-' else '^', table.tempovar[line["Style"][0]])
+	
+	DELAY["line"] = line
 
 def MultiBarRest(line):
-	printOut("R1*%s*%s " % (TIME, line["NumBars"][0]))
+	printOut(DELAY["out"])
+	
+	DELAY["out"] = "R1*%s*%s " % (TIME, line["NumBars"][0])
+	DELAY["line"] = line
 
 def Sustain(line):
 	DELAY["sustain"] = "\\sustainOff" if line.get("Status", ["Down"])[0] == "Released" else "\\sustainOn"
 
 def PerformStyle(line):
+	printOut(DELAY["out"])
+	DELAY["out"] = ''
+	
 	if line["Style"][0] in table.performstyle:
-		printOut( "\\mark\\markup\\italic\\bold\\large\"%s\" " % (table.performstyle[line["Style"][0]],) )
+		DELAY["out"] = "\\mark\\markup\\italic\\bold\\large\"%s\" " % (table.performstyle[line["Style"][0]],)
+	
+	DELAY["line"] = line
 
 def Flow(line):
+	printOut(DELAY["out"])
+	DELAY["out"] = ''
+	
 	if line["Style"][0] in table.flow:
-		printOut( "\\mark\\markup%s" % (table.flow[line["Style"][0]],) )
+		DELAY["out"] = "\\mark\\markup%s" % (table.flow[line["Style"][0]],)
+	
+	DELAY["line"] = line
 
 Reset()
 with open(IF, errors='backslashreplace', newline=None) as f:
@@ -450,6 +494,7 @@ with open(IF, errors='backslashreplace', newline=None) as f:
 		#faking switch case
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
 	
+	printOut(DELAY["out"])
 	printOut("\\bar \"%s\"" % (ENDBAR,))
 	printOut(FOOTER)
 
