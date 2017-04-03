@@ -1,6 +1,6 @@
-import sys, table
+import sys, table, re
 
-IF = sys.argv[1] if sys.argv.__len__() > 1 else "nwctxt/SONG1.nwctxt"
+IF = sys.argv[1] if sys.argv.__len__() > 1 else "NWCTXT/SONG1.nwctxt"
 OF = sys.stdout
 ERR = sys.stderr
 HEADER = """\
@@ -8,6 +8,7 @@ HEADER = """\
 \\pointAndClickOff
 \\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")
 \\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")
+\\defineBarLine \" :|||:\" #'(\":||\" \"||:\" \" ||| \")
 \\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")
 caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #"scripts.caesura.straight" \\breathe}
 
@@ -338,6 +339,18 @@ def Rest(dur):
 	return note
 
 def Bar(line):
+	if DELAY["line"] and DELAY["line"][''][0] == "Bar":
+		regex = re.compile(r"\\bar\".*?\"")
+		if DELAY["line"]["Style"][0] == "LocalRepeatClose" and line["Style"][0] == "LocalRepeatOpen":
+			DELAY["out"] = "\\once\\override Score.RehearsalMark.break-visibility = ##(#t #t #f)" + regex.sub("\\\\bar\" :|||:\"", DELAY["out"])
+		elif DELAY["line"]["Style"][0] == "SectionClose" and line["Style"][0] == "SectionOpen":
+			DELAY["out"] = "\\bar\"|.|\"\n\t"
+		elif DELAY["line"]["Style"][0] == "MasterRepeatClose" and line["Style"][0] == "MasterRepeatOpen":
+			DELAY["out"] = "\\bar\":|.|:\"\n\t"
+		
+		DELAY["line"] = line
+		return
+	
 	printOut(DELAY["out"])
 	DELAY["out"] = ''
 	
