@@ -18,10 +18,10 @@ see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issu
 
 ### Usage
 save to file:
-`python ./nwc2ly.py nwctextfile.nwctxt > lilypondfile.ly`
+<code>python ./nwc2ly.py <i>nwctextfile</i>.nwctxt > <i>lilypondfile</i>.ly</code>
 
 pipe directly into lilypond:
-`python ./nwc2ly.py nwctextfile.nwctxt | lilypond --pdf -o pdfout.pdf -`
+<code>python ./nwc2ly.py <i>nwctextfile</i>.nwctxt | lilypond --pdf -o <i>pdfout</i>.pdf -</code>
 
 ### License ###
 
