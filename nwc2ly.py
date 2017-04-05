@@ -417,12 +417,12 @@ def StaffProperties(line):
 def AddStaff(line):
 	global STAFFADDED
 	printOut(DELAY["out"])
+	Reset()
 	
 	if STAFFADDED:
 		DELAY["out"] = "\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,)
 	
 	STAFFADDED = True
-	Reset()
 	DELAY["line"] = line
 
 def Text(line):
@@ -476,7 +476,12 @@ def TempoVar(line):
 def MultiBarRest(line):
 	printOut(DELAY["out"])
 	
-	DELAY["out"] = "R1*%s*%s " % (TIME, line["NumBars"][0])
+	dur = "1*%s*%s" % (TIME, line["NumBars"][0]) if eval(TIME) != 1. else "1*%s" % (line["NumBars"][0],)
+	
+	if dur != PREVNOTE[1]:
+		DELAY["out"] = "R%s " % (dur,)
+		PREVNOTE[1] = dur
+	
 	DELAY["line"] = line
 
 def Sustain(line):
