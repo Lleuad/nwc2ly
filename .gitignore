@@ -5,6 +5,6 @@ nwctxt
 *.so
 
 NWC data structure.txt
-*.nwctxt*
+*.nwc*
 *.sw*
 *.pdf
