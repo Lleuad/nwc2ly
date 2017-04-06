@@ -1,5 +1,7 @@
 # nwc2ly
-A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
+A line by line converter from NoteWorthy Composer's nwctxt file to LilyPond.
+
+The goal is not to produce an exact copy, NoteWorthy Composer isn't known for its pretty output after all. The main priority is to produce an easily editable file (relative mode, bar checks, etc.) and do any final tweaks in LilyPond, while still being able to do most of the grunt work in NoteWorthy.
 
 ### Currently handles (nwc version 2.75):
 * notes and (multibar)rests (except multi voice chords and special note heads)
@@ -21,7 +23,7 @@ see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issu
 
 ### Usage
 #### without CLI
-run `nwc2ly.py`
+run `nwc2ly.py` and select the input file from the filedialog.
 #### with CLI
 save to file:
 <code>python nwc2ly.py <i>nwctextfile</i>.nwctxt > <i>lilypondfile</i>.ly</code>
