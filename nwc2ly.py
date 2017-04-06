@@ -1,6 +1,23 @@
-import sys, table, re
+from __future__ import print_function, unicode_literals
+import sys
+if sys.version_info < (3,0):
+	print("This script requires Python version 3.0 or later")
+	#from layer import *
+	exit()
 
-IF = sys.argv[1] if sys.argv.__len__() > 1 else "NWCTXT/SONG1.nwctxt"
+import table, re
+
+if sys.argv.__len__() > 1:
+	IF = sys.argv[1]
+else:
+#	if sys.version_info < (3,0):
+#		import Tkinter as tkinter
+#		import tkFileDialog as filedialog
+#	else:
+	import tkinter
+	from tkinter import filedialog
+	tkinter.Tk().withdraw()
+	IF = filedialog.askopenfilename()
 OF = sys.stdout
 ERR = sys.stderr
 HEADER = """\
