@@ -16,6 +16,9 @@ A line by line converter from NoteWorthy Composer's nwctxt file to lilypond
 ### Still working on:
 see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
 
+### Requirements
+* python 3.0 or later
+
 ### Usage
 #### without CLI
 run `nwc2ly.py`
