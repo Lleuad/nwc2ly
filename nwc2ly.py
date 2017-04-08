@@ -20,6 +20,7 @@ else:
 	tkinter.Tk().withdraw()
 	IF = filedialog.askopenfilename()
 	OF = open(os.path.splitext(IF)[0] + ".ly", "w")
+
 ERR = sys.stderr
 HEADER = """\
 \\version \"2.18.2\"
