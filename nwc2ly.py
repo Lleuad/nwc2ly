@@ -3,7 +3,8 @@
 from __future__ import print_function, unicode_literals
 import sys
 if sys.version_info < (3,0):
-	#raise SystemExit("This script requires Python version 3.0 or later")
+	if sys.version_info < (2,6,0,'alpha',2):
+		raise SystemExit("This script requires Python version 2.6.0 alpha 2 or later")
 	from layer import *
 
 import table, re
