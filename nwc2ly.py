@@ -1,9 +1,10 @@
 #!/bin/python
+# -*- coding: utf-8
 from __future__ import print_function, unicode_literals
 import sys
 if sys.version_info < (3,0):
-	raise SystemExit("This script requires Python version 3.0 or later")
-	#from layer import *
+	#raise SystemExit("This script requires Python version 3.0 or later")
+	from layer import *
 
 import table, re
 
@@ -11,13 +12,15 @@ if sys.argv.__len__() > 1:
 	IF = sys.argv[1]
 	OF = sys.stdout
 else:
-#	if sys.version_info < (3,0):
-#		import Tkinter as tkinter
-#		import tkFileDialog as filedialog
-#	else:
-	import tkinter, os
-	from tkinter import filedialog
-	tkinter.Tk().withdraw()
+	import os
+	if sys.version_info < (3,0):
+		import Tkinter as tkinter
+		import tkFileDialog as filedialog
+	else:
+		import tkinter
+		from tkinter import filedialog
+		tkinter.Tk().withdraw()
+	
 	IF = filedialog.askopenfilename()
 	OF = open(os.path.splitext(IF)[0] + ".ly", "w")
 
@@ -127,7 +130,7 @@ def Reset():
 	         "line": {},
 	         "out": ''}
 
-def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + s[1:]).split('|')) }
+def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 
 def printOut(s): print(s, end='', file=OF)
 
