@@ -1,5 +1,5 @@
 # nwc2ly
-A line by line converter from NoteWorthy Composer's nwctxt file to LilyPond.
+A line by line converter from [NoteWorthy Composer](https://noteworthycomposer.com/)'s nwctxt file to [LilyPond](http://lilypond.org/).
 
 The goal is not to produce an exact copy, NoteWorthy Composer isn't known for its pretty output after all. The main priority is to produce an easily editable file (relative mode, bar checks, etc.) and do any final tweaks in LilyPond, while still being able to do most of the grunt work in NoteWorthy.
 
