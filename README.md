@@ -19,7 +19,7 @@ The goal is not to produce an exact copy, NoteWorthy Composer isn't known for it
 see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
 
 ### Requirements
-* python 3.0 or later
+* python 2.6.0a2 or later
 
 ### Usage
 #### without CLI
