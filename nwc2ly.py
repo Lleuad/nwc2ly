@@ -105,31 +105,41 @@ SWITCH = {"Editor":          lambda : '',
 ###USER SETTINGS
 # strict beaming
 # block rest articulation
+# voice2 is dur2 (default) or stem down
 ###
 
-def Reset():
-	global PREVNOTE, TIME, NUMTIMESIG, ENDBAR, CLEF, KEY, SPAN, DELAY
-	PREVNOTE = [0, ""] #pos, dur
-	TIME = '4/4'
-	NUMTIMESIG = False
-	ENDBAR = "|."
-	CLEF = ["Treble", ""]
+def Reset(all = 1, measure = 0):
+	global PREVNOTE, TIME, NUMTIMESIG, ENDBAR, CLEF, KEY, SPAN, DELAY, MEASURE
+	if all:
+		PREVNOTE = [0, ""] #pos, dur
+		TIME = '4/4'
+		NUMTIMESIG = False
+		ENDBAR = "|."
+		CLEF = ["Treble", ""]
+		
+		KEY = [{a: 'n' for a in "abcdefg"},  #key sig
+		       {a: 'n' for a in "abcdefg"},  #measure
+		       {a: '' for a in "abcdefg"}]   #ties
+		
+		SPAN = {"grace": False,
+		        "slur": False,
+		        "dynamicvar": False}
+		
+		DELAY = {"dynamic": '',
+		         "dynamicvar": '',
+		         "tempovar": '',
+		         "fermata": '',
+		         "sustain": '',
+		         "line": {},
+		         "out": ''}
 	
-	KEY = [{a: 'n' for a in "abcdefg"},  #key sig
-	       {a: 'n' for a in "abcdefg"},  #measure
-	       {a: '' for a in "abcdefg"}]   #ties
-	
-	SPAN = {"grace": False,
-	        "slur": False,
-	        "dynamicvar": False}
-	
-	DELAY = {"dynamic": '',
-	         "dynamicvar": '',
-	         "tempovar": '',
-	         "fermata": '',
-	         "sustain": '',
-	         "line": {},
-	         "out": ''}
+	if all or measure:
+		MEASURE = {"first": True,
+		           "dur": 0,
+		           "dur2": 0,
+		           "last": 0,
+		           "voice2": "",
+		           "prevnote": [0, ""]}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 
@@ -182,6 +192,8 @@ def Dur(dur):
 	
 	if 'Triplet=First' in dur:
 		duration['triplet'] = 'first'
+	elif 'Triplet' in dur:
+		duration['triplet'] = True
 	elif 'Triplet=End' in dur:
 		duration['triplet'] = 'end'
 	
@@ -209,6 +221,12 @@ def Expression(line, expr):
 		pitch = Pitch(line['Pos'][0])
 	elif expr == 'chord':
 		pitch = [Pitch(a) for a in line['Pos']]
+		if "Pos2" in line:
+			pitch2 = [Pitch(a) for a in line["Pos2"]]
+			dur2 = Dur(line['Dur2'])
+		else:
+			pitch2 = {}
+			dur2 = {}
 	
 	dur = Dur(line['Dur'])
 	note = ""
@@ -228,7 +246,7 @@ def Expression(line, expr):
 	elif expr == 'rest':
 		note += Rest(dur)
 	elif expr == 'chord':
-		note += Chord(pitch, dur)
+		note += Chord(pitch, dur, pitch2, dur2)
 	
 	#slur
 	if dur['slur'] and not SPAN['slur']:
@@ -278,6 +296,12 @@ def Expression(line, expr):
 		SPAN['grace'] = False
 		note = '}' + note
 	
+	#multivoiced
+	if MEASURE["dur2"] and MEASURE["dur"] == MEASURE["dur2"] and not dur["triplet"]:
+		note += "}\\\\{" + MEASURE["voice2"] + "}}>>"
+		Reset(all = 0, measure = 1)
+		PREVNOTE[1] = ""
+	
 	DELAY["out"] = "%s " % (note,)
 	DELAY["line"] = line
 
@@ -307,11 +331,33 @@ def Note(pitch, dur):
 	else:
 		KEY[2][name] = ''
 	
+	if MEASURE["dur2"]:
+		MEASURE["dur"] += 0 if dur["triplet"] else (2-2**-dur["length"].count('.'))/( int(dur["length"].rstrip('.')) * (3 if dur["triplet"] else 1) )
+	
 	return note
 
-def Chord(pitchlist, dur):
+def Chord(pitchlist, dur, pitch2list, dur2):
+	note = ""
+	if dur2:
+		if not MEASURE["dur2"]:
+			MEASURE["prevnote"][0] = PREVNOTE[0]
+			MEASURE["prevnote"][1] = PREVNOTE[1]
+			tmp = (PREVNOTE[0] + 13 - CLEFDIFF[CLEF[0]] + {"_8": -7, "^8": 7, "":0}[CLEF[1]])
+			MEASURE["voice2"] = "\\relative " + NOTES[CLEF[0]][(tmp+1) % 7] + ('\'' if tmp > 0 else ',') * (abs(tmp) // 7) + "{"
+			print("prevnote:", PREVNOTE, "\nclef:", CLEF, "\ntmp:", tmp, file=sys.stderr)
+			note = "<<{"
+		
+		MEASURE["voice2"] += _Chord(pitch2list, dur2, MEASURE["prevnote"])
+		MEASURE["last"] = 0 if dur2["triplet"] else (2-2**-dur2["length"].count('.'))/( int(dur2["length"].rstrip('.')) * (3 if dur2["triplet"] else 1) )
+		MEASURE["dur2"] += MEASURE["last"]
+	
+	if MEASURE["dur2"]:
+		MEASURE["dur"] += 0 if dur["triplet"] else (2-2**-dur["length"].count('.'))/( int(dur["length"].rstrip('.')) * (3 if dur["triplet"] else 1) )
+	
+	return note + _Chord(pitchlist, dur, PREVNOTE)
+
+def _Chord(pitchlist, dur, localprevnote):
 	note = "<"
-	localprevnote = PREVNOTE[0]
 	
 	for pitch in pitchlist:
 		name = NOTES[CLEF[0]][pitch['pitch'] % 7]
@@ -324,9 +370,9 @@ def Chord(pitchlist, dur):
 		note += ['', 'es', 'eses', 'is', 'isis']['nbv#x'.index( KEY[2][name] or KEY[1][name] )]
 		
 		#octave shift
-		if abs(pitch['pitch'] - localprevnote) > 3:
-			note += ('\'' if pitch['pitch'] > localprevnote else ',') * ((abs(pitch['pitch'] - localprevnote) + 3) // 7)
-		localprevnote = pitch['pitch']
+		if abs(pitch['pitch'] - localprevnote[0]) > 3:
+			note += ('\'' if pitch['pitch'] > localprevnote[0] else ',') * ((abs(pitch['pitch'] - localprevnote[0]) + 3) // 7)
+		localprevnote[0] = pitch['pitch']
 		
 		#tie
 		if pitch['tie']:
@@ -337,13 +383,12 @@ def Chord(pitchlist, dur):
 		
 		note += ' '
 	
-	PREVNOTE[0] = pitchlist[0]['pitch']
+	localprevnote[0] = pitchlist[0]['pitch']
 	note = note[:-1] + ">"
 	
-	if dur['length'] != PREVNOTE[1]:
+	if dur['length'] != localprevnote[1]:
 		note += dur['length']
-		PREVNOTE[1] = dur['length']
-	
+		localprevnote[1] = dur['length']
 	
 	return note
 
@@ -358,6 +403,9 @@ def Rest(dur):
 		if dur['length'] == '1' and eval(TIME) != 1.:
 			note += "*%s" % (TIME,)
 			PREVNOTE[1] += "*%s" % (TIME,)
+	
+	if MEASURE["dur2"]:
+		MEASURE["dur"] += 0 if dur["triplet"] else (2-2**-dur["length"].count('.'))/( int(dur["length"].rstrip('.')) * (3 if dur["triplet"] else 1) )
 	
 	return note
 
