@@ -135,6 +135,7 @@ def Reset(all = 1, measure = 0):
 	
 	if all or measure:
 		MEASURE = {"first": True,
+		           "threshold": 0.5,
 		           "dur": 0,
 		           "dur2": 0,
 		           "last": 0,
@@ -297,8 +298,8 @@ def Expression(line, expr):
 		note = '}' + note
 	
 	#multivoiced
-	if MEASURE["dur2"] and MEASURE["dur"] == MEASURE["dur2"] and not dur["triplet"]:
-		note += "}\\\\{" + MEASURE["voice2"] + "}}>>"
+	if MEASURE["dur2"] and MEASURE["dur"] - MEASURE["dur2"] >= MEASURE["threshold"] and not dur["triplet"]:
+		note += "}\\\\{" + MEASURE["voice2"] + "s1*%d/%d}}>>" % (MEASURE["dur"] - MEASURE["dur2"]).as_integer_ratio()
 		Reset(all = 0, measure = 1)
 		PREVNOTE[1] = ""
 	
@@ -341,13 +342,18 @@ def Chord(pitchlist, dur, pitch2list, dur2):
 	if dur2:
 		if not MEASURE["dur2"]:
 			MEASURE["prevnote"][0] = PREVNOTE[0]
-			MEASURE["prevnote"][1] = PREVNOTE[1]
+			MEASURE["prevnote"][1] = ""
 			tmp = (PREVNOTE[0] + 13 - CLEFDIFF[CLEF[0]] + {"_8": -7, "^8": 7, "":0}[CLEF[1]])
 			MEASURE["voice2"] = "\\relative " + NOTES[CLEF[0]][(tmp+1) % 7] + ('\'' if tmp > 0 else ',') * (abs(tmp) // 7) + "{"
-			print("prevnote:", PREVNOTE, "\nclef:", CLEF, "\ntmp:", tmp, file=sys.stderr)
 			note = "<<{"
 		
-		MEASURE["voice2"] += _Chord(pitch2list, dur2, MEASURE["prevnote"])
+		if MEASURE["dur2"] > MEASURE["dur"]:
+			MEASURE["voice2"] = MEASURE["voice2"][:-1] + "*%d/%d " % (1-(MEASURE["dur2"] - MEASURE["dur"])/MEASURE["last"]).as_integer_ratio()
+		elif MEASURE["dur2"] < MEASURE["dur"]:
+			MEASURE["voice2"] += "s1*%d/%d " % (MEASURE["dur"] - MEASURE["dur2"]).as_integer_ratio()
+		MEASURE["dur2"] = MEASURE["dur"]
+		
+		MEASURE["voice2"] += _Chord(pitch2list, dur2, MEASURE["prevnote"]) + " "
 		MEASURE["last"] = 0 if dur2["triplet"] else (2-2**-dur2["length"].count('.'))/( int(dur2["length"].rstrip('.')) * (3 if dur2["triplet"] else 1) )
 		MEASURE["dur2"] += MEASURE["last"]
 	
@@ -488,10 +494,15 @@ def StaffProperties(line):
 def AddStaff(line):
 	global STAFFADDED
 	printOut(DELAY["out"])
+	voice2 = ""
+	if MEASURE["dur2"]:
+		if MEASURE["dur"] > MEASURE["dur2"]:
+			MEASURE["voice2"] += "s1*%d/%d" % (MEASURE["dur"] - MEASURE["dur2"]).as_integer_ratio()
+		voice2 = "}\\\\{" + MEASURE["voice2"] + "}}>>"
 	Reset()
 	
 	if STAFFADDED:
-		DELAY["out"] = "\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,)
+		DELAY["out"] = voice2 + "\\bar \"%s\"}\n}\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t" % (ENDBAR,)
 	
 	STAFFADDED = True
 	DELAY["line"] = line
@@ -584,6 +595,11 @@ with open(IF, errors='backslashreplace', newline=None) as f:
 		SWITCH.get(line[''][0], lambda : printErr(line[''][0]))()
 	
 	printOut(DELAY["out"])
-	printOut("\\bar \"%s\"" % (ENDBAR,))
+	
+	if MEASURE["dur2"]:
+		if MEASURE["dur"] > MEASURE["dur2"]:
+			MEASURE["voice2"] += "s1*%d/%d" % (MEASURE["dur"] - MEASURE["dur2"]).as_integer_ratio()
+		MEASURE["voice2"] = "}\\\\{" + MEASURE["voice2"] + "}}>>"
+	printOut("%s\\bar \"%s\"" % (MEASURE["voice2"],ENDBAR))
 	printOut(FOOTER)
 
