@@ -1,0 +1,502 @@
+import table, sys
+from itertools import chain
+
+CurPage = None
+CurStaff = None
+#CurMultiVoice = None
+
+IF = ["NWCTXT/SONG1",
+      "NWCTXT/RegressionTests/Bar",
+      "NWCTXT/RegressionTests/TempoVariance",
+      "NWCTXT/RegressionTests/Rest",
+      "NWCTXT/RegressionTests/Time",
+      "NWCTXT/RegressionTests/Clef",
+][5] + ".nwctxt"
+if sys.argv.__len__() > 1:
+    IF = sys.argv[1]
+OF = sys.stdout
+#else:
+#    import os
+#    import tkinter
+#    from tkinter import filedialog
+#    tkinter.Tk().withdraw()
+#
+#    IF = filedialog.askopenfilename()
+#    OF = sys.stdout #open(os.path.splitext(IF)[0] + ".ly", "w")
+#
+CLEFDIFF = {"treble": 0, "bass": 12, "tenor": 8, "alto": 6, "percussion": 6}
+
+NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
+         "Bass":       ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
+         "Tenor":      ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+         "Alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
+         "Percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
+
+def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
+
+def Pitch(pos):
+	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
+	if not pos[0].isdigit() and pos[0] != '-':
+		pitch['accidental'] = pos[0]
+		pos = pos[1:]
+	if not pos[-1].isdigit() and pos[-1] == '^':
+		pitch['tie'] = True
+		pos = pos[:-1]
+	if not pos[-1].isdigit():
+		pitch['head'] = pos[-1]
+		pos = pos[:-1]
+	if pos.replace('-','',1).isdigit():
+		pitch['pitch'] = int(pos)
+	else:
+		printErr("%s is not a number" % (pos,))
+		exit()
+	
+	return pitch
+
+def Dur(dur):
+	duration = {'length': '4',
+	            'triplet': None,
+	            'grace': False,
+	            'staccato': False,
+	            'staccatissimo': False,
+	            'tenuto': False,
+	            'marcato': False,
+	            'accent': False,
+	            'slur': False}
+	if dur[0] == 'Whole':
+		duration['length'] = '1'
+	elif dur[0] == 'Half':
+		duration['length'] = '2'
+	elif dur[0][:-2].isdigit():
+		duration['length'] = dur[0][:-2]
+	else:
+		printErr("%s is not a number" % (dur[0][:-2],))
+	
+	if 'DblDotted' in dur:
+		duration['length'] += '..'
+	elif 'Dotted' in dur:
+		duration['length'] += '.'
+	
+	if 'Triplet=First' in dur:
+		duration['triplet'] = 'first'
+	elif 'Triplet' in dur:
+		duration['triplet'] = True
+	elif 'Triplet=End' in dur:
+		duration['triplet'] = 'end'
+	
+	if 'Grace' in dur:
+		duration['grace'] = True
+	if 'Staccato' in dur:
+		duration['staccato'] = True
+	if 'Tenuto' in dur:
+		duration['tenuto'] = True
+	if 'Slur' in dur:
+		duration['slur'] = True
+	if 'Accent' in dur:
+		duration['accent'] = True
+	if 'Marcato' in dur:
+		duration['marcato'] = True
+	if 'Staccatissimo' in dur:
+		duration['staccatissimo'] = True
+	
+	return duration
+
+class Page:
+    #SongInfo
+    Title = ""
+    Author = ""
+    Lyricist = ""
+    Copyright1 = ""
+    Copyright2 = ""
+
+    #PgSetup
+    BarNumbers = None
+    StartingBar = 1
+
+    #Header
+    LocalRepeat = 0
+    BrokenDouble = 0
+    Ceasura = 0
+
+    def __init__(self):
+        global CurPage
+        CurPage = self
+        self.Staff = [AddStaff("|AddStaff")]
+
+        for line in (Tokenise(a[:-1]) for a in f if a[0] == '|'):
+            if line[""][0] == "AddStaff":
+                if self.Staff[-1].Measure == [None]:
+                    self.Staff.pop()
+
+                self.Staff.append(AddStaff(line))
+            elif callable(globals().get(line[""][0], None)):
+                CurStaff.Measure.append(eval(line[""][0])(line))
+
+    def print(self):
+        yield "\\version \"2.18.2\"\n\\pointAndClickOff\n"
+        if self.LocalRepeat:
+            yield "\\defineBarLine \":||\" #\'(\":||\" \"\" \" ||\")\n"
+            yield "\\defineBarLine \"||:\" #\'(\"||:\" \"\" \"|| \")\n"
+            yield "\\defineBarLine \":|||:\" #'(\":||\" \"||:\" \" ||| \")\n"
+        if self.BrokenDouble:
+            yield "\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n"
+        if self.Ceasura:
+            yield "caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #\"scripts.caesura.straight\" \\breathe}\n"
+        yield "\n\\score{<<\n"
+        for item in (a.print() for a in self.Staff if a):
+            for a in item: yield a
+        yield ">>}\n"
+
+class AddStaff:
+    PrevNote = [0, ""] #pos, dur
+    Time = '4/4'
+    NumTimeSig = False
+    Endbar = "|."
+    Clef = ["treble", 0] #octave down: 7, octave up: -7
+
+    Key = [{a: 'n' for a in "abcdefg"},  #key sig
+           {a: 'n' for a in "abcdefg"},  #measure
+           {a: '' for a in "abcdefg"}]   #ties
+
+    Span = {"grace": False,
+            "slur": False,
+            "dynamicvar": False}
+
+    Delay = {"dynamic": ('', 0),
+             "dynamicvar": ('', 0),
+             "tempovar": ('', 0), # ["", -1|1]
+             "fermata": 0,        # -1|1
+             "sustain": (0, 0)}
+
+    def __init__(self, line):
+        global CurStaff
+        CurStaff = self
+        self.Measure = [None]
+
+    def print(self):
+        yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t"
+        for item in (a.print() for a in self.Measure if a):
+            for a in item: yield a
+        yield "\\bar\"" + self.Endbar + "\"}\n}\n"
+
+class MultiVoice:
+    pass
+
+def barWrap(cls):
+
+    def wrapper(line):
+        if CurStaff.Measure[-1].__doc__ == "Bar":
+            if CurStaff.Measure[-1].Style == "MasterRepeatClose" and line["Style"][0] == "MasterRepeatOpen":
+                CurStaff.Measure[-1].Style = "MasterRepeatCloseOpen"
+            elif CurStaff.Measure[-1].Style == "LocalRepeatClose" and line["Style"][0] == "LocalRepeatOpen":
+                CurStaff.Measure[-1].Style = "LocalRepeatCloseOpen"
+            elif CurStaff.Measure[-1].Style == "SectionClose" and line["Style"][0] == "SectionOpen":
+                CurStaff.Measure[-1].Style = "SectionCloseOpen"
+            else:
+                return cls(line)
+            return None
+        return cls(line)
+
+    return wrapper
+
+@barWrap
+class Bar:
+    """Bar"""
+    Style = "Single"
+    Repeat = None
+    Fermata = 0
+
+    def __init__(self, line):
+        self.Style = line.get("Style", ["Single"])[0]
+        self.Repeat = line.get("Repeat", [None])[0]
+        self.Fermata = CurStaff.Delay["fermata"]
+        CurStaff.Delay["fermata"] = 0
+
+        if self.Style == "BrokenDouble":
+            CurPage.BrokenDouble = True
+        elif "LocalRepeat" in self.Style:
+            CurPage.LocalRepeat = True
+
+    def print(self):
+        if self.Fermata or self.Repeat:
+            yield "\\once\\override Score.RehearsalMark.break-visibility = ##(#t #t #f) "
+        if self.Fermata and not self.Repeat:
+            if self.Fermata == -1:
+                yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
+                yield "\\mark\\markup\\musicglyph #\"scripts.dfermata\" "
+            else:
+                yield "\\mark\\markup\\musicglyph #\"scripts.ufermata\" "
+        elif self.Fermata and self.Repeat:
+            if self.Fermata == -1:
+                yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(0 . -7.6) "
+                yield "\\once\\override Score.RehearsalMark.baseline-skip = #6.1 "
+                yield "\\mark\\markup\\column{\\small\\center-align\"(%s)\" \\musicglyph #\"scripts.dfermata\"}" % (self.Repeat, )
+            else:
+                yield "\\mark\\markup\\column{\\musicglyph #\"scripts.ufermata\" \\small\\center-align\"(%s)\"}" % (self.Repeat, )
+
+        elif self.Repeat:
+            if self.Style == "LocalRepeatCloseOpen":
+                yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
+            yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat,)
+        yield table.bar.get(self.Style, "|") + "\n\t"
+
+class Clef:
+    """Clef"""
+    Clef = "treble"
+    Octave = 0 #up: -7, down: 7
+
+    def __init__(self, line):
+        CurStaff.PrevNote[0] -= CLEFDIFF[CurStaff.Clef[0]] + CurStaff.Clef[1]
+        self.Clef = line.get("Type", ["Treble"])[0].lower()
+        CurStaff.Clef = [self.Clef, 0]
+
+        if "OctaveShift" in line:
+            self.Octave = {"Octave Down": 7, "Octave Up": -7}.get(line["OctaveShift"][0], 0)
+            CurStaff.Clef[1] = self.Octave
+
+        CurStaff.PrevNote[0] += CLEFDIFF[self.Clef] + self.Octave
+
+    def print(self):
+        if self.Octave:
+            yield "\\clef \"%s%s\" " % (self.Clef, "_8" if self.Octave == 7 else "^8")
+        else:
+            yield "\\clef %s " % (self.Clef, )
+
+#Dynamic
+
+#DynamicVariance
+
+#Flow
+
+
+#Chord
+##open new voice if notes overlap
+
+#Note
+
+def Rest(line):
+    Type = "Rest"
+    if "Dur" in line:
+        dur = Dur(line["Dur"])
+    else:
+        print("Err: duration not found in %s" % line[""], file=sys.stderr)
+        return None
+    note = "r"
+    if dur["length"] == '1':
+        Type += "FullMeasure"
+        note = "R"
+        if eval(CurStaff.Time) != 1.:
+            dur["length"] += "*%s" % (CurStaff.Time,)
+
+    if dur['length'] != CurStaff.PrevNote[1]:
+        note += dur["length"]
+        CurStaff.PrevNote[1] = dur["length"]
+
+    return Expression(Type, dur, None, note)
+
+#RestChord
+
+class Expression:
+    """Expression"""
+    Note = ""
+    Type = ""
+
+    #span
+    Grace = 0       #first: 1, last: -1
+    Triplet = 0
+    Slur = 0
+    DynamicSpan = 0 #decr: -1, cresc: 1
+
+    #articulation
+    Staccato = False
+    Staccatissimo = False
+    Tenuto = False
+    Accent = False
+    Marcato = False
+
+    #dynamics
+    Fermata = 0          #down: -1, up: 1
+    Dynamic = ("", 0)
+    Dynamicvar = ("", 0)
+    Tempovar = ("", 0)
+    Sustain = (0, 0)     #(down: 1 | release: -1, down: -1 | up: 1)
+
+    def __init__(self, Type, dur, pitch, Note):
+        self.Type = Type
+        self.Note = Note
+
+        if dur["grace"] and not CurStaff.Span["grace"]:
+            CurStaff.Span["grace"] = True
+            self.Grace = 1
+        elif not dur["grace"] and CurStaff.Span["grace"]:
+            CurStaff.Span["grace"] = False
+            for item in reversed(CurStaff.Measure):
+                if item.__doc__ == "Expression":
+                    item.Grace = -1
+                    break
+        if dur["slur"] and not CurStaff.Span["slur"]:
+            CurStaff.Span["slur"] = True
+            self.Slur = 1
+        elif not dur["slur"] and CurStaff.Span["slur"]:
+            CurStaff.Span["slur"] = False
+            self.Slur = -1
+
+        if dur["triplet"] == "first":
+            self.Triplet = 1
+        elif dur["triplet"] == "end":
+            self.Triplet = -1
+
+        if "Rest" not in Type:
+            self.Staccato = dur["staccato"]
+            self.Staccatissimo = dur["staccatissimo"]
+            self.Tenuto = dur["tenuto"]
+            self.Accent = dur["accent"]
+            self.Marcato = dur["marcato"]
+
+        if CurStaff.Delay["fermata"]:
+            self.Fermata = CurStaff.Delay["fermata"]
+            CurStaff.Delay["fermata"] = 0
+        elif CurStaff.Delay["sustain"]:
+            self.Sustain = CurStaff.Delay["sustain"]
+            CurStaff.Delay["sustain"] = (0, 0)
+
+        elif CurStaff.Delay["dynamic"][1]:
+            self.Dynamic = CurStaff.Delay["dynamic"]
+            CurStaff.Delay["dynamic"] = ("", 0)
+        elif CurStaff.Delay["dynamicvar"][1]:
+            self.Dynamicvar = CurStaff.Delay["dynamicvar"]
+            CurStaff.Delay["dynamicvar"] = ("", 0)
+        if CurStaff.Delay["tempovar"][1]:
+            self.Tempovar = CurStaff.Delay["tempovar"]
+            CurStaff.Delay["tempovar"] = ("", 0)
+
+    def print(self):
+        if self.Grace == 1:
+            yield "\\grace{"
+        if self.Triplet == 1:
+            yield "\\tuplet 3/2{"
+
+        yield self.Note
+
+        if self.Slur == 1:
+            yield "("
+        elif self.Slur == -1:
+            yield ")"
+
+        if self.Staccato:
+            yield "-." if not self.Tenuto else "-_"
+        if self.Staccatissimo:
+            yield "-!"
+        if self.Tenuto and not self.Staccato:
+            yield "--"
+        if self.Accent:
+            yield "->"
+        if self.Marcato:
+            yield "-^"
+
+        if self.Fermata:
+            yield "%s\\%s" %("" if self.Fermata == 1 else "_","fermataMarkup" if self.Type == "RestFullMeasure" else "fermata")
+        if self.Dynamic[1]:
+            yield "%s\\%s" %("^" if self.Dynamic[1] == 1 else "", self.Dynamic[0])
+        if self.Dynamicvar[1]:
+            yield "%s\\%s" %("^" if self.Dynamicvar[1] == 1 else "", self.Dynamicvar[0])
+        if self.Tempovar[1]:
+            yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
+
+        if self.Triplet == -1:
+            yield "}"
+        if self.Grace == -1:
+            yield "}"
+
+        yield " "
+
+#Key
+
+#Lyrics
+
+#PerformanceStyle
+
+#RestMultibar
+
+def StaffProperties(line):
+    #system connections "WithNextStaff"
+    if "EndingBar" in line:
+        CurStaff.Endbar = table.endbar.get(line["EndingBar"][0], "|.")
+    return None
+
+#SustainPedal
+
+#Tempo
+
+def TempoVarWrap(cls):
+
+    def wrapper(line):
+        if line.get("Style",[""])[0] == "Fermata":
+            CurStaff.Delay["fermata"] = 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1
+        elif line.get("Style", [""])[0] in table.tempovar:
+            CurStaff.Delay["tempovar"] = (line["Style"][0], 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+
+        else:
+            return cls(line)
+        return None
+
+    return wrapper
+
+@TempoVarWrap
+class TempoVariance:
+    """TempoVariance"""
+    Style = ""
+
+    def __init__(self, line):
+        if line.get("Style",[""])[0] == "Breath Mark":
+            self.Style = "\\breathe "
+        elif line.get("Style",[""])[0] == "Caesura":
+            self.Style = "\\caesura "
+            CurPage.Ceasura = True
+        else:
+            if "Style" in line:
+                print("Err: TempoVariance style \"%s\" not recognised" % (line["Style"][0],), file=sys.stderr)
+            else:
+                print("Err: TempoVariance style not found")
+
+    def print(self):
+        yield self.Style
+
+#Text
+##text commands
+
+class TimeSig:
+    """TimeSig"""
+    Signature = ""
+    NumTimeSig = 0 #off: -1, on: 1
+
+    def __init__(self, line):
+        if "Signature" in line:
+            if line["Signature"][0] == "Common":
+                self.Signature = "4/4"
+
+            elif line["Signature"][0] == "AllaBreve":
+                self.Signature = "2/2"
+            else:
+                self.Signature = line["Signature"][0]
+
+            if line["Signature"][0] in ["Common", "AllaBreve"] and CurStaff.NumTimeSig:
+                self.NumTimeSig = -1
+                CurStaff.NumTimeSig = False
+            elif line["Signature"][0] in ["4/4", "2/2"] and not CurStaff.NumTimeSig:
+                self.NumTimeSig = 1
+                CurStaff.NumTimeSig = True
+
+            CurStaff.Time = self.Signature
+        else:
+            print("Err: TimeSig no Signature found", file=sys.stderr)
+
+    def print(self):
+        if self.NumTimeSig:
+            yield "\\%sTimeSignature " % ("default" if self.NumTimeSig == -1 else "numeric",)
+        yield "\\time %s " % (self.Signature,)
+
+with open(IF, errors='backslashreplace', newline=None) as f:
+    Page()
+    for line in CurPage.print():
+        print(line, end="", file=OF)
