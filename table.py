@@ -7,9 +7,15 @@ bar = {
 "BrokenDouble": "\\bar\"!!\"",
 "SectionOpen": "\\bar\".|\"",
 "SectionClose": "\\bar\"|.\"",
+"SectionCloseOpen": "\\bar\"|.|\"",
 "LocalRepeatOpen": "\\bar\"||:\"",
+"LocalRepeatClose": "\\bar\":||\"",
+"LocalRepeatCloseOpen": "\\bar\":|||:\"",
 "MasterRepeatOpen": "\\bar\".|:\"",
-"MasterRepeatClose": "\\bar\":|.\""}
+"MasterRepeatClose": "\\bar\":|.\"",
+"MasterRepeatCloseOpen": "\\bar\":|.|:\"",
+"Transparent": "\\bar\"\"",
+}
 
 endbar = {
 "Section Close": "|.",
