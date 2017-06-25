@@ -5,6 +5,7 @@ NWCTXT
 *.so
 
 NWC data structure.txt
+regrestest
 *.nwc*
 *.ly
 *.sw*
