@@ -33,6 +33,14 @@ tempovar = {
 "Rubato": "rubato",
 "Stringendo": "string."}
 
+dynamic = {
+"Crescendo": "cresc",
+"Decrescendo": "decresc",
+"Diminuendo": "dim",
+"Rinforzando": "rfz",
+"Sforzando": "sfz",
+}
+
 performstyle = {
 "Ad Libitum": "ad lib.",
 "Animato": "animato",

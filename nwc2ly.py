@@ -12,7 +12,10 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/Time",
       "NWCTXT/RegressionTests/Clef",
       "NWCTXT/RegressionTests/Upbeat",
-][2] + ".nwctxt"
+      "NWCTXT/RegressionTests/Key",
+      "NWCTXT/RegressionTests/RestMultiBar",
+      "NWCTXT/RegressionTests/DynamicVar",
+][-1] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
 OF = sys.stdout
@@ -133,6 +136,15 @@ class Page:
             elif callable(globals().get(line[""][0], None)):
                 CurStaff.Measure.append(eval(line[""][0])(line))
 
+
+        for staff in self.Staff:
+            if staff.Span["dynamicvar"]:
+                staff.Span["dynamicvar"] = ""
+                for item in reversed(staff.Measure):
+                    if item.__doc__ == "Expression":
+                        item.DynamicSpan = "off"
+                        break
+
     def print(self):
         yield "\\version \"2.18.2\"\n\\pointAndClickOff\n"
         if self.LocalRepeat:
@@ -163,10 +175,9 @@ class AddStaff:
 
     Span = {"grace": False,
             "slur": False,
-            "dynamicvar": False}
+            "dynamicvar": ""}
 
     Delay = {"dynamic": ('', 0),
-             "dynamicvar": ('', 0),
              "tempovar": ('', 0), # ["", -1|1]
              "fermata": 0,        # -1|1
              "sustain": (0, 0)}
@@ -177,7 +188,7 @@ class AddStaff:
         self.Measure = [None]
 
     def print(self):
-        yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t"
+        yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\override Hairpin.to-barline = ##f\n\t\\relative b\'{\n\t"
         if self.Partial:
             yield "\\set Timing.measurePosition = #(ly:make-moment -%d/%d)\n\t" % self.Partial.as_integer_ratio()
         for item in (a.print() for a in self.Measure if a):
@@ -282,7 +293,16 @@ class Clef:
 
 #Dynamic
 
-#DynamicVariance
+def DynamicVariance(line):
+    if "Style" in line:
+        if line["Style"][0] in table.dynamic:
+            CurStaff.Delay["dynamic"] = (table.dynamic[line["Style"][0]], 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+            CurStaff.Span["dynamicvar"] = ""
+        else:
+            print("Err: DynamicVariance style \"%s\" not recognised" % (line["Style"][0], ), file=sys.stderr)
+    else:
+        print("Err: DynamicVariance style not found", file=sys.stderr)
+    return None
 
 #Flow
 
@@ -326,7 +346,7 @@ def Note(line):
     else:
         CurStaff.Key[2][name] = ""
 
-    return Expression(Type, dur, pitch, note)
+    return Expression(Type, dur, pitch, note, line)
 
 def Rest(line):
     Type = "Rest"
@@ -347,7 +367,7 @@ def Rest(line):
         note += dur["length"]
         CurStaff.PrevNote[1] = dur["length"]
 
-    return Expression(Type, dur, None, note)
+    return Expression(Type, dur, None, note, line)
 
 #RestChord
 
@@ -360,7 +380,7 @@ class Expression:
     Grace = 0       #first: 1, last: -1
     Triplet = 0
     Slur = 0
-    DynamicSpan = 0 #decr: -1, cresc: 1
+    DynamicSpan = ""
 
     #articulation
     Staccato = False
@@ -372,11 +392,10 @@ class Expression:
     #dynamics
     Fermata = 0          #down: -1, up: 1
     Dynamic = ("", 0)
-    Dynamicvar = ("", 0)
     Tempovar = ("", 0)
     Sustain = (0, 0)     #(down: 1 | release: -1, down: -1 | up: 1)
 
-    def __init__(self, Type, dur, pitch, Note):
+    def __init__(self, Type, dur, pitch, Note, line):
         self.Type = Type
         self.Note = Note
         CurStaff.Progress += eval("1/"+dur["length"].replace(".", ""))*(2-2**-dur["length"].count('.'))/((3 if dur["triplet"] else 1)) # a magic mess
@@ -396,6 +415,19 @@ class Expression:
         elif not dur["slur"] and CurStaff.Span["slur"]:
             CurStaff.Span["slur"] = False
             self.Slur = -1
+        if "Opts" in line:
+            if "Crescendo" in line["Opts"] and CurStaff.Span["dynamicvar"] != "cresc":
+                CurStaff.Span["dynamicvar"] = "cresc"
+                self.DynamicSpan = "cresc"
+            elif "Diminuendo" in line["Opts"] and CurStaff.Span["dynamicvar"] != "decresc":
+                CurStaff.Span["dynamicvar"] = "decresc"
+                self.DynamicSpan = "decresc"
+        if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]):
+            CurStaff.Span["dynamicvar"] = ""
+            for item in reversed(CurStaff.Measure):
+                if item.__doc__ == "Expression":
+                    item.DynamicSpan = "off"
+                    break
 
         if dur["triplet"] == "first":
             self.Triplet = 1
@@ -419,9 +451,6 @@ class Expression:
         if CurStaff.Delay["dynamic"][1]:
             self.Dynamic = CurStaff.Delay["dynamic"]
             CurStaff.Delay["dynamic"] = ("", 0)
-        if CurStaff.Delay["dynamicvar"][1]:
-            self.Dynamicvar = CurStaff.Delay["dynamicvar"]
-            CurStaff.Delay["dynamicvar"] = ("", 0)
         if CurStaff.Delay["tempovar"][1]:
             self.Tempovar = CurStaff.Delay["tempovar"]
             CurStaff.Delay["tempovar"] = ("", 0)
@@ -450,12 +479,17 @@ class Expression:
         if self.Marcato:
             yield "-^"
 
+        if self.DynamicSpan == "cresc":
+            yield "\<"
+        elif self.DynamicSpan == "decresc":
+            yield "\>"
+        elif self.DynamicSpan == "off":
+            yield "\!"
+
         if self.Fermata:
             yield "%s\\%s" %("" if self.Fermata == 1 else "_","fermataMarkup" if self.Type == "RestFullMeasure" else "fermata")
         if self.Dynamic[1]:
             yield "%s\\%s" %("^" if self.Dynamic[1] == 1 else "", self.Dynamic[0])
-        if self.Dynamicvar[1]:
-            yield "%s\\%s" %("^" if self.Dynamicvar[1] == 1 else "", self.Dynamicvar[0])
         if self.Tempovar[1]:
             yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
         if self.Sustain[1]:
@@ -468,13 +502,47 @@ class Expression:
 
         yield " "
 
-#Key
+class Key:
+    Signature = ["C"]
+
+    def __init__(self, line):
+        self.Signature = line.get("Signature", ["C"])
+        CurStaff.Key[0] = {a: 'n' for a in "abcdefg"}
+        if self.Signature[0] != "C":
+            CurStaff.Key[0].update([(a[0].lower(), a[1]) for a in self.Signature])
+        CurStaff.Key[1].update(CurStaff.Key[0])
+
+    def print(self):
+        if self.Signature[0] != "C":
+            yield "\set Staff.keySignature = #`( %s)\n\t" % (" ".join([
+                    "(%d . %s) " % ("CDEFGAB".index(a[0]),
+                    [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in self.Signature
+                ]), )
+        yield ""
 
 #Lyrics
 
 #PerformanceStyle
 
-#RestMultibar
+class RestMultiBar:
+    """RestMultiBAr"""
+    Note = "1"
+
+    def __init__(self, line):
+        if eval(CurStaff.Time) != 1.:
+            self.Note += "*" + CurStaff.Time
+
+        if line.get("NumBars", ["1"])[0] != "1":
+            self.Note += "*" + line["NumBars"][0]
+        CurStaff.Progress += eval(self.Note)
+        if self.Note == CurStaff.PrevNote[1]:
+            self.Note = ""
+        else:
+            CurStaff.PrevNote[1] = self.Note
+
+    def print(self):
+        yield "R%s " % (self.Note,)
+
 
 def StaffProperties(line):
     #system connections "WithNextStaff"
