@@ -11,7 +11,8 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/Rest",
       "NWCTXT/RegressionTests/Time",
       "NWCTXT/RegressionTests/Clef",
-][5] + ".nwctxt"
+      "NWCTXT/RegressionTests/Upbeat",
+][6] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
 OF = sys.stdout
@@ -26,11 +27,11 @@ OF = sys.stdout
 #
 CLEFDIFF = {"treble": 0, "bass": 12, "tenor": 8, "alto": 6, "percussion": 6}
 
-NOTES = {"Treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
-         "Bass":       ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
-         "Tenor":      ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-         "Alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
-         "Percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
+NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
+         "bass":       ['d', 'e', 'f', 'g', 'a', 'b', 'c'],
+         "tenor":      ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+         "alto":       ['c', 'd', 'e', 'f', 'g', 'a', 'b'],
+         "percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 
@@ -153,6 +154,8 @@ class AddStaff:
     NumTimeSig = False
     Endbar = "|."
     Clef = ["treble", 0] #octave down: 7, octave up: -7
+    Progress = 0
+    Partial = None
 
     Key = [{a: 'n' for a in "abcdefg"},  #key sig
            {a: 'n' for a in "abcdefg"},  #measure
@@ -175,6 +178,8 @@ class AddStaff:
 
     def print(self):
         yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\relative b\'{\n\t"
+        if self.Partial:
+            yield "\\set Timing.measurePosition = #(ly:make-moment -%d/%d)\n\t" % self.Partial.as_integer_ratio()
         for item in (a.print() for a in self.Measure if a):
             for a in item: yield a
         yield "\\bar\"" + self.Endbar + "\"}\n}\n"
@@ -205,6 +210,7 @@ class Bar:
     Style = "Single"
     Repeat = None
     Fermata = 0
+    Newline = False
 
     def __init__(self, line):
         self.Style = line.get("Style", ["Single"])[0]
@@ -216,6 +222,14 @@ class Bar:
             CurPage.BrokenDouble = True
         elif "LocalRepeat" in self.Style:
             CurPage.LocalRepeat = True
+
+        if CurStaff.Progress >= eval(CurStaff.Time) or CurStaff.Partial == None:
+            if CurStaff.Partial == None:
+                CurStaff.Partial = 0 if CurStaff.Progress >= eval(CurStaff.Time) else CurStaff.Progress
+            CurStaff.Progress = 0
+            self.Newline = True
+
+        CurStaff.Key[1].update(CurStaff.Key[0])
 
     def print(self):
         if self.Fermata or self.Repeat:
@@ -238,7 +252,11 @@ class Bar:
             if self.Style == "LocalRepeatCloseOpen":
                 yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
             yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat,)
-        yield table.bar.get(self.Style, "|") + "\n\t"
+
+        yield table.bar.get(self.Style, "|")
+
+        if self.Newline:
+            yield "\n\t"
 
 class Clef:
     """Clef"""
@@ -272,7 +290,43 @@ class Clef:
 #Chord
 ##open new voice if notes overlap
 
-#Note
+def Note(line):
+    Type = "Note"
+    if "Dur" in line:
+        dur = Dur(line["Dur"])
+    else:
+        print("Err: duration not found in %s" % line[""], file=sys.stderr)
+        return None
+
+    if "Pos" in line:
+        pitch = Pitch(line["Pos"][0])
+    else:
+        print("Err: position not found in %s" % line[""], file=sys.stderr)
+
+    name = NOTES[CurStaff.Clef[0]][pitch["pitch"] % 7]
+    note = name
+    if pitch["accidental"] != "":
+        CurStaff.Key[1][name] = pitch["accidental"]
+
+    note += ["", "es", "eses", "is", "isis"]["nbv#x".index(CurStaff.Key[2][name] or CurStaff.Key[1][name])]
+
+    #octave shift
+    if abs(pitch["pitch"] - CurStaff.PrevNote[0]) > 3:
+        note += ("\'" if pitch["pitch"] > CurStaff.PrevNote[0] else ",") * ((abs(pitch["pitch"] - CurStaff.PrevNote[0]) + 3) // 7)
+    CurStaff.PrevNote[0] = pitch["pitch"]
+
+    if dur["length"] != CurStaff.PrevNote[1]:
+        note += dur["length"]
+        CurStaff.PrevNote[1] = dur["length"]
+
+    #tie
+    if pitch["tie"]:
+        note += "~"
+        CurStaff.Key[2][name] = CurStaff.Key[2][name] or CurStaff.Key[1][name]
+    else:
+        CurStaff.Key[2][name] = ""
+
+    return Expression(Type, dur, pitch, note)
 
 def Rest(line):
     Type = "Rest"
@@ -281,6 +335,7 @@ def Rest(line):
     else:
         print("Err: duration not found in %s" % line[""], file=sys.stderr)
         return None
+
     note = "r"
     if dur["length"] == '1':
         Type += "FullMeasure"
@@ -324,6 +379,7 @@ class Expression:
     def __init__(self, Type, dur, pitch, Note):
         self.Type = Type
         self.Note = Note
+        CurStaff.Progress += eval("1/"+dur["length"].replace(".", ""))*(2-2**-dur["length"].count('.'))/((3 if dur["triplet"] else 1)) # a magic mess
 
         if dur["grace"] and not CurStaff.Span["grace"]:
             CurStaff.Span["grace"] = True
@@ -469,6 +525,7 @@ class TimeSig:
     """TimeSig"""
     Signature = ""
     NumTimeSig = 0 #off: -1, on: 1
+    MeasurePos = 0
 
     def __init__(self, line):
         if "Signature" in line:
@@ -487,11 +544,18 @@ class TimeSig:
                 self.NumTimeSig = 1
                 CurStaff.NumTimeSig = True
 
+            CurStaff.Progress /= eval(CurStaff.Time)
             CurStaff.Time = self.Signature
+            if CurStaff.Progress and CurStaff.Progress != 1.:
+                self.MeasurePos = CurStaff.Progress * eval(self.Signature)
+            CurStaff.Progress *= eval(self.Signature)
         else:
             print("Err: TimeSig no Signature found", file=sys.stderr)
 
     def print(self):
+        if self.MeasurePos:
+            yield "\\set Timing.measurePosition = #(ly:make-moment %d/%d) " % self.MeasurePos.as_integer_ratio()
+
         if self.NumTimeSig:
             yield "\\%sTimeSignature " % ("default" if self.NumTimeSig == -1 else "numeric",)
         yield "\\time %s " % (self.Signature,)
