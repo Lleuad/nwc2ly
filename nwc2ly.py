@@ -12,7 +12,7 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/Time",
       "NWCTXT/RegressionTests/Clef",
       "NWCTXT/RegressionTests/Upbeat",
-][6] + ".nwctxt"
+][2] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
 OF = sys.stdout
@@ -412,14 +412,14 @@ class Expression:
         if CurStaff.Delay["fermata"]:
             self.Fermata = CurStaff.Delay["fermata"]
             CurStaff.Delay["fermata"] = 0
-        elif CurStaff.Delay["sustain"]:
+        if CurStaff.Delay["sustain"][1]:
             self.Sustain = CurStaff.Delay["sustain"]
             CurStaff.Delay["sustain"] = (0, 0)
 
-        elif CurStaff.Delay["dynamic"][1]:
+        if CurStaff.Delay["dynamic"][1]:
             self.Dynamic = CurStaff.Delay["dynamic"]
             CurStaff.Delay["dynamic"] = ("", 0)
-        elif CurStaff.Delay["dynamicvar"][1]:
+        if CurStaff.Delay["dynamicvar"][1]:
             self.Dynamicvar = CurStaff.Delay["dynamicvar"]
             CurStaff.Delay["dynamicvar"] = ("", 0)
         if CurStaff.Delay["tempovar"][1]:
@@ -458,6 +458,8 @@ class Expression:
             yield "%s\\%s" %("^" if self.Dynamicvar[1] == 1 else "", self.Dynamicvar[0])
         if self.Tempovar[1]:
             yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
+        if self.Sustain[1]:
+            yield "%s\\%s" % ("" if self.Sustain[1] == 1 else "", "sustainOn" if self.Sustain[0] == 1 else "sustainOff")
 
         if self.Triplet == -1:
             yield "}"
@@ -480,7 +482,9 @@ def StaffProperties(line):
         CurStaff.Endbar = table.endbar.get(line["EndingBar"][0], "|.")
     return None
 
-#SustainPedal
+def SustainPedal(line):
+    CurStaff.Delay["sustain"] = (-1 if line.get("Status", ["Down"])[0] == "Released" else 1, 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+    return None
 
 #Tempo
 
