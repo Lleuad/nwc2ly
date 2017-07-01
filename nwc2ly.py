@@ -15,6 +15,10 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/Key",
       "NWCTXT/RegressionTests/RestMultiBar",
       "NWCTXT/RegressionTests/DynamicVar",
+      "NWCTXT/RegressionTests/Flow",
+      "NWCTXT/RegressionTests/PerformanceStyle",
+      "NWCTXT/RegressionTests/Tempo",
+      "NWCTXT/RegressionTests/Text",
 ][-1] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
@@ -37,6 +41,7 @@ NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
          "percussion": ['c', 'd', 'e', 'f', 'g', 'a', 'b']}
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
+def Direction(p): return 1 if float(p) > -1 else -1
 
 def Pitch(pos):
 	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
@@ -180,7 +185,8 @@ class AddStaff:
     Delay = {"dynamic": ('', 0),
              "tempovar": ('', 0), # ["", -1|1]
              "fermata": 0,        # -1|1
-             "sustain": (0, 0)}
+             "sustain": (0, 0),
+             "text": ""}
 
     def __init__(self, line):
         global CurStaff
@@ -291,20 +297,25 @@ class Clef:
         else:
             yield "\\clef %s " % (self.Clef, )
 
-#Dynamic
+def Dynamic(line):
+    if "Style" in line:
+        if CurStaff.Delay["dynamic"][0] == "f" and line["Style"][0] == "p":
+            CurStaff.Delay["dynamic"] = ("fp", Direction(line.get("Pos", ["0"])[0]))
+        else:
+            CurStaff.Delay["dynamic"] = (line["Style"][0], Direction(line.get("Pos", ["0"])[0]))
+        CurStaff.Span["dynamicvar"] = ""
+    return None
 
 def DynamicVariance(line):
     if "Style" in line:
         if line["Style"][0] in table.dynamic:
-            CurStaff.Delay["dynamic"] = (table.dynamic[line["Style"][0]], 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+            CurStaff.Delay["dynamic"] = (table.dynamic[line["Style"][0]], Direction(line.get("Pos", ["0"])[0]))
             CurStaff.Span["dynamicvar"] = ""
         else:
             print("Err: DynamicVariance style \"%s\" not recognised" % (line["Style"][0], ), file=sys.stderr)
     else:
         print("Err: DynamicVariance style not found", file=sys.stderr)
     return None
-
-#Flow
 
 
 #Chord
@@ -394,6 +405,7 @@ class Expression:
     Dynamic = ("", 0)
     Tempovar = ("", 0)
     Sustain = (0, 0)     #(down: 1 | release: -1, down: -1 | up: 1)
+    Text = ""
 
     def __init__(self, Type, dur, pitch, Note, line):
         self.Type = Type
@@ -454,6 +466,9 @@ class Expression:
         if CurStaff.Delay["tempovar"][1]:
             self.Tempovar = CurStaff.Delay["tempovar"]
             CurStaff.Delay["tempovar"] = ("", 0)
+        if CurStaff.Delay["text"]:
+            self.Text = CurStaff.Delay["text"]
+            CurStaff.Delay["text"] = ""
 
     def print(self):
         if self.Grace == 1:
@@ -494,6 +509,8 @@ class Expression:
             yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
         if self.Sustain[1]:
             yield "%s\\%s" % ("" if self.Sustain[1] == 1 else "", "sustainOn" if self.Sustain[0] == 1 else "sustainOff")
+        if self.Text:
+            yield self.Text
 
         if self.Triplet == -1:
             yield "}"
@@ -501,6 +518,22 @@ class Expression:
             yield "}"
 
         yield " "
+
+class Flow:
+    Flow = ""
+    Direction = -1
+
+    def __init__(self, line):
+        self.Flow = line.get("Style", [""])[0]
+        self.Direction = Direction(line.get("Pos", ["0"])[0])
+
+    def print(self):
+        if self.Flow:
+            if self.Direction == -1:
+                yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
+            yield "\\mark\\markup%s" % (table.flow[self.Flow], )
+        else:
+            yield ""
 
 class Key:
     Signature = ["C"]
@@ -522,11 +555,26 @@ class Key:
 
 #Lyrics
 
-#PerformanceStyle
+class PerformanceStyle:
+    Direction = 1
+    Style = ""
+
+    def __init__(self, line):
+        self.Direction = Direction(line.get("Pos", ["0"])[0])
+        self.Style = line.get("Style", [""])[0]
+
+    def print(self):
+        if self.Style:
+            if self.Direction == -1:
+                yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
+            yield "\\mark\\markup\\italic\\bold\\large\"%s\" " % (table.performstyle[self.Style], )
+        else:
+            yield ""
 
 class RestMultiBar:
     """RestMultiBAr"""
     Note = "1"
+    Text = ""
 
     def __init__(self, line):
         if eval(CurStaff.Time) != 1.:
@@ -540,7 +588,13 @@ class RestMultiBar:
         else:
             CurStaff.PrevNote[1] = self.Note
 
+        if CurStaff.Delay["text"]:
+            self.Text = CurStaff.Delay["text"]
+            CurStaff.Delay["text"] = ""
+
     def print(self):
+        if self.Text:
+            yield "<>%s" % (self.Text,)
         yield "R%s " % (self.Note,)
 
 
@@ -551,18 +605,39 @@ def StaffProperties(line):
     return None
 
 def SustainPedal(line):
-    CurStaff.Delay["sustain"] = (-1 if line.get("Status", ["Down"])[0] == "Released" else 1, 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+    CurStaff.Delay["sustain"] = (-1 if line.get("Status", ["Down"])[0] == "Released" else 1, Direction(line.get("Pos", ["0"])[0]))
     return None
 
-#Tempo
+class Tempo:
+    Base = None
+    Tempo = "120"
+    Text = ""
+    Direction = 1
+
+    def __init__(self, line):
+        if "Tempo" in line:
+            self.Base = table.tempo[line.get("Base", ["Quarter"])[0]]
+            self.Tempo = line["Tempo"][0]
+        if "Text" in line:
+            self.Text = line["Text"][0]
+        self.Direction = Direction(line.get("Pos", [0])[0])
+
+    def print(self):
+        if self.Direction == -1:
+            yield "\\once\\override Score.MetronomeMark.direction=#-1 "
+        yield "\\tempo"
+        if self.Text:
+            yield self.Text
+        if self.Base:
+            yield "%s=%s " % (self.Base, self.Tempo)
 
 def TempoVarWrap(cls):
 
     def wrapper(line):
         if line.get("Style",[""])[0] == "Fermata":
-            CurStaff.Delay["fermata"] = 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1
+            CurStaff.Delay["fermata"] = Direction(line.get("Pos", ["0"])[0])
         elif line.get("Style", [""])[0] in table.tempovar:
-            CurStaff.Delay["tempovar"] = (line["Style"][0], 1 if float(line.get("Pos", ["0"])[0]) > -1 else -1)
+            CurStaff.Delay["tempovar"] = (line["Style"][0], Direction(line.get("Pos", ["0"])[0]))
 
         else:
             return cls(line)
@@ -592,6 +667,18 @@ class TempoVariance:
 
 #Text
 ##text commands
+def Text(line):
+    if "Text" in line:
+        text = "^" if Direction(line.get("Pos", ["0"])[0]) == 1 else "_"
+        if line.get("Font", [""])[0] == "StaffCueSymbols":
+            text += table.textsmall[line["Text"][0][1:-1]]
+        elif line.get("Font", [""])[0] == "StaffSymbols":
+            text += table.textlarge[line["Text"][0][1:-1]]
+        else:
+            text += "\\markup\\italic"
+            text += line["Text"][0]
+        CurStaff.Delay["text"] = text
+    return None
 
 class TimeSig:
     """TimeSig"""
