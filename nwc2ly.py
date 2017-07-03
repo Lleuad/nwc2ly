@@ -139,7 +139,7 @@ class Page:
 
                 self.Staff.append(AddStaff(line))
             elif callable(globals().get(line[""][0], None)):
-                CurStaff.Measure.append(eval(line[""][0])(line))
+                CurStaff.append(eval(line[""][0])(line))
 
 
         for staff in self.Staff:
@@ -171,6 +171,7 @@ class AddStaff:
     NumTimeSig = False
     Endbar = "|."
     Clef = ["treble", 0] #octave down: 7, octave up: -7
+    Measure = [None]
     Progress = 0
     Partial = None
 
@@ -192,6 +193,14 @@ class AddStaff:
         global CurStaff
         CurStaff = self
         self.Measure = [None]
+
+    def rfind(self, Type):
+        for item in reversed(self.Measure):
+            if item.__doc__ == Type:
+                return item
+
+    def append(self, cls):
+        self.Measure.append(cls)
 
     def print(self):
         yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\override Hairpin.to-barline = ##f\n\t\\relative b\'{\n\t"
@@ -417,10 +426,7 @@ class Expression:
             self.Grace = 1
         elif not dur["grace"] and CurStaff.Span["grace"]:
             CurStaff.Span["grace"] = False
-            for item in reversed(CurStaff.Measure):
-                if item.__doc__ == "Expression":
-                    item.Grace = -1
-                    break
+            CurStaff.rfind("Expression").Grace = -1
         if dur["slur"] and not CurStaff.Span["slur"]:
             CurStaff.Span["slur"] = True
             self.Slur = 1
@@ -436,10 +442,7 @@ class Expression:
                 self.DynamicSpan = "decresc"
         if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]):
             CurStaff.Span["dynamicvar"] = ""
-            for item in reversed(CurStaff.Measure):
-                if item.__doc__ == "Expression":
-                    item.DynamicSpan = "off"
-                    break
+            CurStaff.rfind("Expression").DynamicSpan = "off"
 
         if dur["triplet"] == "first":
             self.Triplet = 1
