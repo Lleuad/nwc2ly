@@ -318,7 +318,7 @@ def DynamicVariance(line):
     return None
 
 
-#Chord
+#Chord FIXME
 ##open new voice if notes overlap
 
 def Note(line):
@@ -380,7 +380,7 @@ def Rest(line):
 
     return Expression(Type, dur, None, note, line)
 
-#RestChord
+#RestChord FIXME
 
 class Expression:
     """Expression"""
@@ -553,7 +553,7 @@ class Key:
                 ]), )
         yield ""
 
-#Lyrics
+#Lyrics FIXME
 
 class PerformanceStyle:
     Direction = 1
@@ -666,17 +666,23 @@ class TempoVariance:
         yield self.Style
 
 #Text
-##text commands
 def Text(line):
     if "Text" in line:
         text = "^" if Direction(line.get("Pos", ["0"])[0]) == 1 else "_"
-        if line.get("Font", [""])[0] == "StaffCueSymbols":
+
+        if line["Text"][0][1:-1] in table.textcmd:
+            text += table.textcmd[line["Text"][0][1:-1]]
+        elif line.get("Font", [""])[0] == "StaffCueSymbols" and line["Text"][0][1:-1] in table.textsmall:
             text += table.textsmall[line["Text"][0][1:-1]]
-        elif line.get("Font", [""])[0] == "StaffSymbols":
+        elif line.get("Font", [""])[0] == "StaffSymbols" and line["Text"][0][1:-1] in table.textlarge:
             text += table.textlarge[line["Text"][0][1:-1]]
         else:
-            text += "\\markup\\italic"
+            if line.get("Font", [""])[0] == "StaffItalic":
+                text += "\\markup\\italic"
+            elif line.get("Font", [""])[0] == "StaffBold":
+                text += "\\markup\\bold"
             text += line["Text"][0]
+
         CurStaff.Delay["text"] = text
     return None
 
