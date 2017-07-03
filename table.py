@@ -41,8 +41,18 @@ tempovar = {
 "Rubato": "rubato",
 "Stringendo": "string."}
 
-textsmall = {
+textcmd = {
 "\uF026": "\\turn",
+"\uF02B": "\\stopped",
+"\uF02D": "\\prall",
+"\uF03C": "\\downbow",
+"\uF03E": "\\upbow",
+"\uF060": "\\trill",
+"tr": "\\trill",
+}
+
+textsmall = {
+"\uF026": "\\markup\\tiny\\musicglyph #\"scripts.turn\"",
 "\uF027": "\\markup\\tiny\\musicglyph #\"scripts.caesura.straight\"",
 "\uF028": "\\markup\\tiny\\musicglyph #\"accidentals.leftparen\"" ,
 "\uF029": "\\markup\\tiny\\musicglyph #\"accidentals.rightparen\"" ,
@@ -60,9 +70,9 @@ textsmall = {
 "\uF039": "\\markup\\tiny\\musicglyph #\"nine\"",
 "\uF03A": "\\markup\\tiny\\musicglyph #\"scripts.dstaccatissimo\"",
 "\uF03B": "\\markup\\tiny\\musicglyph #\"scripts.ustaccatissimo\"",
-"\uF03C": "\\downbow",
+"\uF03C": "\\markup\\tiny\\musicglyph #\"scripts.downbow\"",
 "\uF03D": "\\markup\\tiny\\score{s\\layout{\\context{\\Staff\\remove\"Time_signature_engraver\"\\remove\"Clef_engraver\"}indent=0}}",
-"\uF03E": "\\upbow",
+"\uF03E": "\\markup\\tiny\\musicglyph #\"scripts.upbow\"",
 "\uF040": "\\markup\\tiny\\musicglyph #\"scripts.dmarcato\"",
 "\uF041": "\\markup\\tiny\\musicglyph #\"scripts.sforzato\"",
 "\uF042": "\\markup\\tiny\\musicglyph #\"scripts.umarcato\"",
@@ -144,7 +154,7 @@ textsmall = {
 }
 
 textlarge = {
-"\uF026": "\\turn",
+"\uF026": "\\markup\\musicglyph #\"scripts.turn\"",
 "\uF027": "\\markup\\musicglyph #\"scripts.caesura.straight\"",
 "\uF028": "\\markup\\musicglyph #\"accidentals.leftparen\"",
 "\uF029": "\\markup\\musicglyph #\"accidentals.rightparen\"",
@@ -162,9 +172,9 @@ textlarge = {
 "\uF039": "\\markup\\musicglyph #\"nine\"",
 "\uF03A": "\\markup\\musicglyph #\"scripts.dstaccatissimo\"",
 "\uF03B": "\\markup\\musicglyph #\"scripts.ustaccatissimo\"",
-"\uF03C": "\\downbow",
+"\uF03C": "\\markup\\musicglyph #\"scripts.downbow\"",
 "\uF03D": "\\markup\\score{s\\layout{\\context{\\Staff\\remove\"Time_signature_engraver\"\\remove\"Clef_engraver\"}indent=0}}",
-"\uF03E": "\\upbow",
+"\uF03E": "\\markup\\musicglyph #\"scripts.upbow\"",
 "\uF040": "\\markup\\musicglyph #\"scripts.dmarcato\"",
 "\uF041": "\\markup\\musicglyph #\"scripts.sforzato\"",
 "\uF042": "\\markup\\musicglyph #\"scripts.umarcato\"",
