@@ -19,6 +19,7 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/PerformanceStyle",
       "NWCTXT/RegressionTests/Tempo",
       "NWCTXT/RegressionTests/Text",
+      "NWCTXT/RegressionTests/Note",
 ][-1] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
@@ -166,31 +167,32 @@ class Page:
         yield ">>}\n"
 
 class AddStaff:
-    PrevNote = [0, ""] #pos, dur
-    Time = '4/4'
-    NumTimeSig = False
-    Endbar = "|."
-    Clef = ["treble", 0] #octave down: 7, octave up: -7
-    Measure = [None]
-    Progress = 0
-    Partial = None
-
-    Key = [{a: 'n' for a in "abcdefg"},  #key sig
-           {a: 'n' for a in "abcdefg"},  #measure
-           {a: '' for a in "abcdefg"}]   #ties
-
-    Span = {"grace": False,
-            "slur": False,
-            "dynamicvar": ""}
-
-    Delay = {"dynamic": ('', 0),
-             "tempovar": ('', 0), # ["", -1|1]
-             "fermata": 0,        # -1|1
-             "sustain": (0, 0),
-             "text": ""}
-
     def __init__(self, line):
         global CurStaff
+
+        self.PrevNote = [0, ""] #pos, dur
+        self.Time = '4/4'
+        self.NumTimeSig = False
+        self.Endbar = "|."
+        self.Clef = ["treble", 0] #octave down: 7, octave up: -7
+        self.Measure = [None]
+        self.Progress = 0
+        self.Partial = None
+
+        self.Key = [{a: 'n' for a in "abcdefg"},  #key sig
+                    {a: 'n' for a in "abcdefg"},  #measure
+                    {a: '' for a in "abcdefg"}]   #ties
+
+        self.Span = {"grace": False,
+                     "slur": False,
+                     "dynamicvar": ""}
+
+        self.Delay = {"dynamic": ('', 0),
+                 "tempovar": ('', 0), # ["", -1|1]
+                 "fermata": 0,        # -1|1
+                 "sustain": (0, 0),
+                 "text": ""}
+
         CurStaff = self
         self.Measure = [None]
 
@@ -377,7 +379,7 @@ def Rest(line):
         return None
 
     note = "r"
-    if dur["length"] == '1':
+    if dur["length"] == '1' and CurStaff.Progress == 0:
         Type += "FullMeasure"
         note = "R"
         if eval(CurStaff.Time) != 1.:
@@ -397,7 +399,7 @@ class Expression:
     Type = ""
 
     #span
-    Grace = 0       #first: 1, last: -1
+    Grace = 0       #first: 1, last: -1, only: 2
     Triplet = 0
     Slur = 0
     DynamicSpan = ""
@@ -426,7 +428,11 @@ class Expression:
             self.Grace = 1
         elif not dur["grace"] and CurStaff.Span["grace"]:
             CurStaff.Span["grace"] = False
-            CurStaff.rfind("Expression").Grace = -1
+            cls = CurStaff.rfind("Expression")
+            if cls.Grace == 1:
+                cls.Grace = 2
+            else:
+                cls.Grace = -1
         if dur["slur"] and not CurStaff.Span["slur"]:
             CurStaff.Span["slur"] = True
             self.Slur = 1
@@ -476,6 +482,8 @@ class Expression:
     def print(self):
         if self.Grace == 1:
             yield "\\grace{"
+        elif self.Grace == 2:
+            yield "\\grace "
         if self.Triplet == 1:
             yield "\\tuplet 3/2{"
 
