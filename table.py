@@ -49,6 +49,7 @@ textcmd = {
 "\uF03E": "\\upbow",
 "\uF060": "\\trill",
 "tr": "\\trill",
+"sf": "\\sf",
 }
 
 textsmall = {
