@@ -188,10 +188,10 @@ class AddStaff:
                      "dynamicvar": ""}
 
         self.Delay = {"dynamic": ('', 0),
-                 "tempovar": ('', 0), # ["", -1|1]
-                 "fermata": 0,        # -1|1
-                 "sustain": (0, 0),
-                 "text": ""}
+                      "tempovar": ('', 0), # ["", -1|1]
+                      "fermata": 0,        # -1|1
+                      "sustain": (0, 0),
+                      "text": ""}
 
         CurStaff = self
         self.Measure = [None]
@@ -448,7 +448,11 @@ class Expression:
                 self.DynamicSpan = "decresc"
         if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]):
             CurStaff.Span["dynamicvar"] = ""
-            CurStaff.rfind("Expression").DynamicSpan = "off"
+            cls = CurStaff.rfind("Expression")
+            if cls.DynamicSpan in ["cresc", "decresc"]:
+                self.DynamicSpan = "off"
+            else:
+                cls.DynamicSpan = "off"
 
         if dur["triplet"] == "first":
             self.Triplet = 1
