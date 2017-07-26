@@ -1,5 +1,6 @@
 import table, sys
 from itertools import chain
+from fractions import Fraction
 
 CurPage = None
 CurStaff = None
@@ -20,6 +21,8 @@ IF = ["NWCTXT/SONG1",
       "NWCTXT/RegressionTests/Tempo",
       "NWCTXT/RegressionTests/Text",
       "NWCTXT/RegressionTests/Note",
+      "NWCTXT/RegressionTests/Blaaskwintet",
+      "NWCTXT/RegressionTests/Chord",
 ][-1] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
@@ -33,6 +36,7 @@ OF = sys.stdout
 #    IF = filedialog.askopenfilename()
 #    OF = sys.stdout #open(os.path.splitext(IF)[0] + ".ly", "w")
 #
+GRACE = ["acciaccatura", "appoggiatura"][0]
 CLEFDIFF = {"treble": 0, "bass": 12, "tenor": 8, "alto": 6, "percussion": 6}
 
 NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
@@ -171,13 +175,14 @@ class AddStaff:
         global CurStaff
 
         self.PrevNote = [0, ""] #pos, dur
-        self.Time = '4/4'
+        self.Time = "4/4"
         self.NumTimeSig = False
         self.Endbar = "|."
         self.Clef = ["treble", 0] #octave down: 7, octave up: -7
         self.Measure = [None]
         self.Progress = 0
         self.Partial = None
+        self.Visible = True
 
         self.Key = [{a: 'n' for a in "abcdefg"},  #key sig
                     {a: 'n' for a in "abcdefg"},  #measure
@@ -187,8 +192,9 @@ class AddStaff:
                      "slur": False,
                      "dynamicvar": ""}
 
-        self.Delay = {"dynamic": ('', 0),
-                      "tempovar": ('', 0), # ["", -1|1]
+        self.Delay = {"dynamic": ("", 0),
+                      "dynamicvar": ("", 0),
+                      "tempovar": ("", 0), # ["", -1|1]
                       "fermata": 0,        # -1|1
                       "sustain": (0, 0),
                       "text": ""}
@@ -203,14 +209,23 @@ class AddStaff:
 
     def append(self, cls):
         self.Measure.append(cls)
+        if cls.__doc__ == "Expression":
+            self.Progress += (Fraction(eval("1/"+cls.Note[1].replace(".", "")))
+                             * (2 - Fraction(1,2)**cls.Note[1].count("."))
+                             * Fraction(2, (3 if cls.Triplet else 2)))
+            if cls.Note[1] == self.PrevNote[1]:
+                cls.Note[1] = ""
+            else:
+                self.PrevNote[1] = cls.Note[1]
 
     def print(self):
-        yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\override Hairpin.to-barline = ##f\n\t\\relative b\'{\n\t"
-        if self.Partial:
-            yield "\\set Timing.measurePosition = #(ly:make-moment -%d/%d)\n\t" % self.Partial.as_integer_ratio()
-        for item in (a.print() for a in self.Measure if a):
-            for a in item: yield a
-        yield "\\bar\"" + self.Endbar + "\"}\n}\n"
+        if self.Visible:
+            yield "\\new Staff{\n\t\\compressFullBarRests\n\t\\override Hairpin.to-barline = ##f\n\t\\override DynamicTextSpanner.style = #\'none\n\t\\relative b\'{\n\t"
+            if self.Partial:
+                yield "\\set Timing.measurePosition = #(ly:make-moment %s)\n\t" % (-self.Partial,)
+            for item in (a.print() for a in self.Measure if a):
+                for a in item: yield a
+            yield "\\bar\"" + self.Endbar + "\"}\n}\n"
 
 class MultiVoice:
     pass
@@ -251,9 +266,9 @@ class Bar:
         elif "LocalRepeat" in self.Style:
             CurPage.LocalRepeat = True
 
-        if CurStaff.Progress >= eval(CurStaff.Time) or CurStaff.Partial == None:
+        if CurStaff.Progress >= Fraction(CurStaff.Time) or CurStaff.Partial == None:
             if CurStaff.Partial == None:
-                CurStaff.Partial = 0 if CurStaff.Progress >= eval(CurStaff.Time) else CurStaff.Progress
+                CurStaff.Partial = 0 if CurStaff.Progress >= Fraction(CurStaff.Time) else CurStaff.Progress
             CurStaff.Progress = 0
             self.Newline = True
 
@@ -320,7 +335,7 @@ def Dynamic(line):
 def DynamicVariance(line):
     if "Style" in line:
         if line["Style"][0] in table.dynamic:
-            CurStaff.Delay["dynamic"] = (table.dynamic[line["Style"][0]], Direction(line.get("Pos", ["0"])[0]))
+            CurStaff.Delay["dynamicvar"] = (table.dynamic[line["Style"][0]], Direction(line.get("Pos", ["0"])[0]))
             CurStaff.Span["dynamicvar"] = ""
         else:
             print("Err: DynamicVariance style \"%s\" not recognised" % (line["Style"][0], ), file=sys.stderr)
@@ -331,9 +346,55 @@ def DynamicVariance(line):
 
 #Chord FIXME
 ##open new voice if notes overlap
+def NoteName(pitch, PrevNote):
+    note = ""
+    tie = ""
+    name = NOTES[CurStaff.Clef[0]][pitch["pitch"] % 7]
+    note += name
+    if pitch["accidental"] != "":
+        CurStaff.Key[1][name] = pitch["accidental"]
+
+    note += ["", "es", "eses", "is", "isis"]["nbv#x".index(CurStaff.Key[2][name] or CurStaff.Key[1][name])]
+
+    #octave shift
+    if abs(pitch["pitch"] - PrevNote[0]) > 3:
+        note += ("\'" if pitch["pitch"] > PrevNote[0] else ",") * ((abs(pitch["pitch"] - PrevNote[0]) + 3) // 7)
+    PrevNote[0] = pitch["pitch"]
+
+    if pitch["tie"]:
+        tie = "~"
+        CurStaff.Key[2][name] = CurStaff.Key[2][name] or CurStaff.Key[1][name]
+    else:
+        CurStaff.Key[2][name] = ""
+
+    return note, tie
+
+def Chord(line):
+    Type = "Chord"
+    note = ["", "", ""]
+    if "Dur" in line:
+        dur = Dur(line["Dur"])
+    else:
+        print("Err: duration not found in %s" % line[""], file=sys.stderr)
+        return None
+
+    if "Pos" not in line:
+        print("Err: position not found in %s" % line[""], file=sys.stderr)
+        return None
+
+    note[0] = "<"
+    note[0] += "".join(NoteName(Pitch(line["Pos"][0]), CurStaff.PrevNote)) + " "
+    localPrevNote = list(CurStaff.PrevNote)
+    for pitch in ("".join(NoteName(Pitch(a), localPrevNote)) for a in line["Pos"][1:]):
+        note[0] += pitch + " "
+    note[0] = note[0][:-1] + ">"
+    note[1] = dur["length"]
+
+    return Expression(Type, dur, pitch, note, line)
 
 def Note(line):
     Type = "Note"
+    note = ["", "", ""]
     if "Dur" in line:
         dur = Dur(line["Dur"])
     else:
@@ -344,50 +405,30 @@ def Note(line):
         pitch = Pitch(line["Pos"][0])
     else:
         print("Err: position not found in %s" % line[""], file=sys.stderr)
+        return None
 
-    name = NOTES[CurStaff.Clef[0]][pitch["pitch"] % 7]
-    note = name
-    if pitch["accidental"] != "":
-        CurStaff.Key[1][name] = pitch["accidental"]
-
-    note += ["", "es", "eses", "is", "isis"]["nbv#x".index(CurStaff.Key[2][name] or CurStaff.Key[1][name])]
-
-    #octave shift
-    if abs(pitch["pitch"] - CurStaff.PrevNote[0]) > 3:
-        note += ("\'" if pitch["pitch"] > CurStaff.PrevNote[0] else ",") * ((abs(pitch["pitch"] - CurStaff.PrevNote[0]) + 3) // 7)
-    CurStaff.PrevNote[0] = pitch["pitch"]
-
-    if dur["length"] != CurStaff.PrevNote[1]:
-        note += dur["length"]
-        CurStaff.PrevNote[1] = dur["length"]
-
-    #tie
-    if pitch["tie"]:
-        note += "~"
-        CurStaff.Key[2][name] = CurStaff.Key[2][name] or CurStaff.Key[1][name]
-    else:
-        CurStaff.Key[2][name] = ""
+    note[0],note[2] = NoteName(pitch, CurStaff.PrevNote)
+    note[1] = dur["length"]
 
     return Expression(Type, dur, pitch, note, line)
 
 def Rest(line):
     Type = "Rest"
+    note = ["", "", ""]
     if "Dur" in line:
         dur = Dur(line["Dur"])
     else:
         print("Err: duration not found in %s" % line[""], file=sys.stderr)
         return None
 
-    note = "r"
+    note[0] = "r"
+    note[1] = dur["length"]
     if dur["length"] == '1' and CurStaff.Progress == 0:
         Type += "FullMeasure"
-        note = "R"
-        if eval(CurStaff.Time) != 1.:
-            dur["length"] += "*%s" % (CurStaff.Time,)
+        note[0] = "R"
+        if Fraction(CurStaff.Time) != 1:
+            note[1] += "*%s" % (CurStaff.Time,)
 
-    if dur['length'] != CurStaff.PrevNote[1]:
-        note += dur["length"]
-        CurStaff.PrevNote[1] = dur["length"]
 
     return Expression(Type, dur, None, note, line)
 
@@ -395,7 +436,7 @@ def Rest(line):
 
 class Expression:
     """Expression"""
-    Note = ""
+    Note = ("", "", "")
     Type = ""
 
     #span
@@ -414,6 +455,7 @@ class Expression:
     #dynamics
     Fermata = 0          #down: -1, up: 1
     Dynamic = ("", 0)
+    DynamicVar = ("", 0)
     Tempovar = ("", 0)
     Sustain = (0, 0)     #(down: 1 | release: -1, down: -1 | up: 1)
     Text = ""
@@ -421,7 +463,6 @@ class Expression:
     def __init__(self, Type, dur, pitch, Note, line):
         self.Type = Type
         self.Note = Note
-        CurStaff.Progress += eval("1/"+dur["length"].replace(".", ""))*(2-2**-dur["length"].count('.'))/((3 if dur["triplet"] else 1)) # a magic mess
 
         if dur["grace"] and not CurStaff.Span["grace"]:
             CurStaff.Span["grace"] = True
@@ -433,12 +474,14 @@ class Expression:
                 cls.Grace = 2
             else:
                 cls.Grace = -1
-        if dur["slur"] and not CurStaff.Span["slur"]:
-            CurStaff.Span["slur"] = True
-            self.Slur = 1
-        elif not dur["slur"] and CurStaff.Span["slur"]:
-            CurStaff.Span["slur"] = False
-            self.Slur = -1
+        if not CurStaff.Span["grace"]:
+            if dur["slur"] and not CurStaff.Span["slur"]:
+                CurStaff.Span["slur"] = True
+                self.Slur = 1
+            elif not dur["slur"] and CurStaff.Span["slur"]:
+                CurStaff.Span["slur"] = False
+                self.Slur = -1
+
         if "Opts" in line:
             if "Crescendo" in line["Opts"] and CurStaff.Span["dynamicvar"] != "cresc":
                 CurStaff.Span["dynamicvar"] = "cresc"
@@ -476,6 +519,9 @@ class Expression:
         if CurStaff.Delay["dynamic"][1]:
             self.Dynamic = CurStaff.Delay["dynamic"]
             CurStaff.Delay["dynamic"] = ("", 0)
+        if CurStaff.Delay["dynamicvar"][1]:
+            self.DynamicVar = CurStaff.Delay["dynamicvar"]
+            CurStaff.Delay["dynamicvar"] = ("", 0)
         if CurStaff.Delay["tempovar"][1]:
             self.Tempovar = CurStaff.Delay["tempovar"]
             CurStaff.Delay["tempovar"] = ("", 0)
@@ -485,13 +531,13 @@ class Expression:
 
     def print(self):
         if self.Grace == 1:
-            yield "\\grace{"
+            yield "\\%s{" % (GRACE, )
         elif self.Grace == 2:
-            yield "\\grace "
+            yield "\\%s " % (GRACE, )
         if self.Triplet == 1:
             yield "\\tuplet 3/2{"
 
-        yield self.Note
+        yield "".join(self.Note)
 
         if self.Slur == 1:
             yield "("
@@ -520,6 +566,8 @@ class Expression:
             yield "%s\\%s" %("" if self.Fermata == 1 else "_","fermataMarkup" if self.Type == "RestFullMeasure" else "fermata")
         if self.Dynamic[1]:
             yield "%s\\%s" %("^" if self.Dynamic[1] == 1 else "", self.Dynamic[0])
+        if self.DynamicVar[1]:
+            yield "%s\\%s" %("^" if self.DynamicVar[1] == 1 else "", self.DynamicVar[0])
         if self.Tempovar[1]:
             yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
         if self.Sustain[1]:
@@ -550,6 +598,12 @@ class Flow:
         else:
             yield ""
 
+def Instrument(line):
+    if "Name" in line:
+        CurStaff.Delay["text"] = "^" if Direction(line.get("Pos", ["0"])[0]) == 1 else "_"
+        CurStaff.Delay["text"] += line["Name"][0]
+    return None
+
 class Key:
     Signature = ["C"]
 
@@ -561,12 +615,15 @@ class Key:
         CurStaff.Key[1].update(CurStaff.Key[0])
 
     def print(self):
+        yield "\set Staff.keySignature = #`("
         if self.Signature[0] != "C":
-            yield "\set Staff.keySignature = #`( %s)\n\t" % (" ".join([
-                    "(%d . %s) " % ("CDEFGAB".index(a[0]),
-                    [",FLAT", ",SHARP"]["b#".index(a[1])]) for a in self.Signature
-                ]), )
-        yield ""
+            yield " %s" % (" ".join([
+                    "(%d . %s) " % (
+                                    "CDEFGAB".index(a[0]),
+                                    [",FLAT", ",SHARP"]["b#".index(a[1])]
+                                   ) for a in self.Signature
+                    ]), )
+        yield ")\n\t"
 
 #Lyrics FIXME
 
@@ -587,17 +644,17 @@ class PerformanceStyle:
             yield ""
 
 class RestMultiBar:
-    """RestMultiBAr"""
+    """RestMultiBar"""
     Note = "1"
     Text = ""
 
     def __init__(self, line):
-        if eval(CurStaff.Time) != 1.:
+        if Fraction(CurStaff.Time) != 1:
             self.Note += "*" + CurStaff.Time
 
         if line.get("NumBars", ["1"])[0] != "1":
             self.Note += "*" + line["NumBars"][0]
-        CurStaff.Progress += eval(self.Note)
+        CurStaff.Progress += Fraction(CurStaff.Time) * Fraction(line["NumBars"][0])
         if self.Note == CurStaff.PrevNote[1]:
             self.Note = ""
         else:
@@ -609,7 +666,7 @@ class RestMultiBar:
 
     def print(self):
         if self.Text:
-            yield "<>%s" % (self.Text,)
+            yield "<>%s " % (self.Text,)
         yield "R%s " % (self.Note,)
 
 
@@ -617,6 +674,9 @@ def StaffProperties(line):
     #system connections "WithNextStaff"
     if "EndingBar" in line:
         CurStaff.Endbar = table.endbar.get(line["EndingBar"][0], "|.")
+    if "Visible" in line and line["Visible"] == "N":
+        CurStaff.Visible = False
+
     return None
 
 def SustainPedal(line):
@@ -724,17 +784,17 @@ class TimeSig:
                 self.NumTimeSig = 1
                 CurStaff.NumTimeSig = True
 
-            CurStaff.Progress /= eval(CurStaff.Time)
+            CurStaff.Progress /= Fraction(CurStaff.Time)
             CurStaff.Time = self.Signature
-            if CurStaff.Progress and CurStaff.Progress != 1.:
-                self.MeasurePos = CurStaff.Progress * eval(self.Signature)
-            CurStaff.Progress *= eval(self.Signature)
+            if CurStaff.Progress and CurStaff.Progress != 1:
+                self.MeasurePos = CurStaff.Progress * Fraction(self.Signature)
+            CurStaff.Progress *= Fraction(self.Signature)
         else:
             print("Err: TimeSig no Signature found", file=sys.stderr)
 
     def print(self):
         if self.MeasurePos:
-            yield "\\set Timing.measurePosition = #(ly:make-moment %d/%d) " % self.MeasurePos.as_integer_ratio()
+            yield "\\set Timing.measurePosition = #(ly:make-moment %s) " % (self.MeasurePos, )
 
         if self.NumTimeSig:
             yield "\\%sTimeSignature " % ("default" if self.NumTimeSig == -1 else "numeric",)
