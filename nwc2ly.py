@@ -1,4 +1,5 @@
-import table, sys
+#!/bin/python
+import table, sys, os, tempfile
 from itertools import chain
 from fractions import Fraction
 
@@ -26,16 +27,19 @@ IF = ["NWCTXT/SONG1",
 ][-1] + ".nwctxt"
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
-OF = sys.stdout
-#else:
-#    import os
-#    import tkinter
-#    from tkinter import filedialog
-#    tkinter.Tk().withdraw()
-#
-#    IF = filedialog.askopenfilename()
-#    OF = sys.stdout #open(os.path.splitext(IF)[0] + ".ly", "w")
-#
+else:
+    import tkinter
+    from tkinter import filedialog
+    tkinter.Tk().withdraw()
+
+    IF = filedialog.askopenfilename(filetypes=[("NWC Text File", "*.nwctxt")])
+
+OF = os.path.splitext(IF)[0]
+if os.path.exists(OF + ".ly"):
+    OF = open(tempfile.mkstemp(prefix=OF + "-", suffix=".ly", text=True)[0], "w")
+else:
+    OF = open(OF + ".ly", "w")
+
 GRACE = ["acciaccatura", "appoggiatura"][0]
 CLEFDIFF = {"treble": 0, "bass": 12, "tenor": 8, "alto": 6, "percussion": 6}
 
@@ -369,6 +373,16 @@ def NoteName(pitch, PrevNote):
 
     return note, tie
 
+def ChordName(Pos):
+    note = "<"
+    note += "".join(NoteName(Pitch(Pos[0]), CurStaff.PrevNote)) + " "
+    localPrevNote = list(CurStaff.PrevNote)
+    for pitch in ("".join(NoteName(Pitch(a), localPrevNote)) for a in Pos[1:]):
+        note += pitch + " "
+    note = note[:-1] + ">"
+
+    return note
+
 def Chord(line):
     Type = "Chord"
     note = ["", "", ""]
@@ -382,15 +396,10 @@ def Chord(line):
         print("Err: position not found in %s" % line[""], file=sys.stderr)
         return None
 
-    note[0] = "<"
-    note[0] += "".join(NoteName(Pitch(line["Pos"][0]), CurStaff.PrevNote)) + " "
-    localPrevNote = list(CurStaff.PrevNote)
-    for pitch in ("".join(NoteName(Pitch(a), localPrevNote)) for a in line["Pos"][1:]):
-        note[0] += pitch + " "
-    note[0] = note[0][:-1] + ">"
+    note[0] = ChordName(line["Pos"])
     note[1] = dur["length"]
 
-    return Expression(Type, dur, pitch, note, line)
+    return Expression(Type, dur, None, note, line)
 
 def Note(line):
     Type = "Note"
@@ -410,7 +419,7 @@ def Note(line):
     note[0],note[2] = NoteName(pitch, CurStaff.PrevNote)
     note[1] = dur["length"]
 
-    return Expression(Type, dur, pitch, note, line)
+    return Expression(Type, dur, None, note, line)
 
 def Rest(line):
     Type = "Rest"
