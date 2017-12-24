@@ -19,7 +19,7 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
 
 ### Requirements
-* python 3.0 or later
+* python 3.2 or later
 
 ### Usage
 #### without CLI
