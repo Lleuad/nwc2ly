@@ -174,16 +174,10 @@ class Page:
         for staff in self.Staff:
             if staff.Span["dynamicvar"]:
                 staff.Span["dynamicvar"] = ""
-                for item in reversed(staff.Measure):
-                    if item.__doc__ == "Expression":
-                        item.DynamicSpan = "off"
-                        break
+                staff.rfind("Expression").DynamicSpan = "off"
             if staff.Span["grace"]:
                 staff.Span["grace"] = ""
-                for item in reversed(staff.Measure):
-                    if item.__doc__ == "Expression":
-                        item.Grace = -1
-                        break
+                staff.rfind("Expression").Grace = -1
 
     def print(self):
         yield "\\version \"2.18.2\"\n\\pointAndClickOff\n"
