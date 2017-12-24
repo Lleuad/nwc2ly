@@ -4,7 +4,7 @@ A line by line converter from [NoteWorthy Composer](https://noteworthycomposer.c
 The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't known for its pretty output after all. The main priority is to produce an easily editable file (relative mode, bar checks, etc.) and do any final tweaks in LilyPond, while still being able to do most of the grunt work in NoteWorthy.
 
 ### Currently handles (nwc version 2.75):
-* notes and (multibar)rests (except multi voice chords and special note heads)
+* notes and (multibar)rests (except special note heads)
 * all bar types (including EndingBar)
 * key and time signatures
 * clefs
@@ -19,7 +19,7 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
 
 ### Requirements
-* python 3.0 or later (2.6.0a2 or later should work as well, but isn't fully tested)
+* python 3.0 or later
 
 ### Usage
 #### without CLI
