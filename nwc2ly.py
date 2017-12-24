@@ -178,6 +178,12 @@ class Page:
                     if item.__doc__ == "Expression":
                         item.DynamicSpan = "off"
                         break
+            if staff.Span["grace"]:
+                staff.Span["grace"] = ""
+                for item in reversed(staff.Measure):
+                    if item.__doc__ == "Expression":
+                        item.Grace = -1
+                        break
 
     def print(self):
         yield "\\version \"2.18.2\"\n\\pointAndClickOff\n"
@@ -773,7 +779,7 @@ class RestMultiBar:
 
 
 def StaffProperties(line):
-    #system connections "WithNextStaff"
+    #FIXME system connections "WithNextStaff"
     if "EndingBar" in line:
         CurStaff.Endbar = table.endbar.get(line["EndingBar"][0], "|.")
     if "Visible" in line and line["Visible"] == "N":
