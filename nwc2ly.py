@@ -425,9 +425,6 @@ def DynamicVariance(line):
     return None
 
 
-#Chord FIXME
-##open new voice if notes overlap
-
 def NoteName(pitch, PrevNote):
     note = ""
     tie = ""
