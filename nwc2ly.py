@@ -1,30 +1,34 @@
 #!/bin/python
 import table, sys, os, tempfile
 from itertools import chain
+from functools import partial
 from fractions import Fraction
 
 CurPage = None
 CurStaff = None
-#CurMultiVoice = None
+CurMultiVoice = None
 
-IF = ["NWCTXT/SONG1",
-      "NWCTXT/RegressionTests/Bar",
-      "NWCTXT/RegressionTests/TempoVariance",
-      "NWCTXT/RegressionTests/Rest",
-      "NWCTXT/RegressionTests/Time",
-      "NWCTXT/RegressionTests/Clef",
-      "NWCTXT/RegressionTests/Upbeat",
-      "NWCTXT/RegressionTests/Key",
-      "NWCTXT/RegressionTests/RestMultiBar",
-      "NWCTXT/RegressionTests/DynamicVar",
-      "NWCTXT/RegressionTests/Flow",
-      "NWCTXT/RegressionTests/PerformanceStyle",
-      "NWCTXT/RegressionTests/Tempo",
-      "NWCTXT/RegressionTests/Text",
-      "NWCTXT/RegressionTests/Note",
-      "NWCTXT/RegressionTests/Blaaskwintet",
-      "NWCTXT/RegressionTests/Chord",
-][-1] + ".nwctxt"
+#IF = ["NWCTXT/SONG1",
+#      "NWCTXT/RegressionTests/Bar",
+#      "NWCTXT/RegressionTests/TempoVariance",
+#      "NWCTXT/RegressionTests/Rest",
+#      "NWCTXT/RegressionTests/Time",
+#      "NWCTXT/RegressionTests/Clef",
+#      "NWCTXT/RegressionTests/Upbeat",
+#      "NWCTXT/RegressionTests/Key",
+#      "NWCTXT/RegressionTests/RestMultiBar",
+#      "NWCTXT/RegressionTests/DynamicVar",
+#      "NWCTXT/RegressionTests/Flow",
+#      "NWCTXT/RegressionTests/PerformanceStyle",
+#      "NWCTXT/RegressionTests/Tempo",
+#      "NWCTXT/RegressionTests/Text",
+#      "NWCTXT/RegressionTests/Note",
+#      "NWCTXT/RegressionTests/Blaaskwintet",
+#      "NWCTXT/RegressionTests/Chord",
+#][-1] + ".nwctxt"
+#OF = sys.stdout
+
+#FIXME cleanup
 if sys.argv.__len__() > 1:
     IF = sys.argv[1]
 else:
@@ -34,11 +38,20 @@ else:
 
     IF = filedialog.askopenfilename(filetypes=[("NWC Text File", "*.nwctxt")])
 
-OF = os.path.splitext(IF)[0]
-if os.path.exists(OF + ".ly"):
-    OF = open(tempfile.mkstemp(prefix=OF + "-", suffix=".ly", text=True)[0], "w")
+if sys.argv.__len__() > 2:
+    OF = sys.argv[2]
 else:
-    OF = open(OF + ".ly", "w")
+    OF = os.path.splitext(IF)[0]
+
+if OF == "-":
+    OF = sys.stdout
+else:
+    OF = os.path.abspath(OF)
+
+    if os.path.exists(OF + ".ly"):
+        OF = open(tempfile.mkstemp(prefix=OF + "-", suffix=".ly", text=True)[0], "w")
+    else:
+        OF = open(OF + ".ly", "w")
 
 GRACE = ["acciaccatura", "appoggiatura"][0]
 CLEFDIFF = {"treble": 0, "bass": 12, "tenor": 8, "alto": 6, "percussion": 6}
@@ -51,6 +64,12 @@ NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 def Direction(p): return 1 if float(p) > -1 else -1
+def CloseMultiVoice():
+    global CurMultiVoice
+    if CurMultiVoice:
+        CurMultiVoice.fill(CurStaff.Progress)
+        CurStaff.append(CurMultiVoice)
+        CurMultiVoice = None
 
 def Pitch(pos):
 	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
@@ -137,7 +156,7 @@ class Page:
     Ceasura = 0
 
     def __init__(self):
-        global CurPage
+        global CurPage, CurMultiVoice
         CurPage = self
         self.Staff = [AddStaff("|AddStaff")]
 
@@ -150,6 +169,7 @@ class Page:
             elif callable(globals().get(line[""][0], None)):
                 CurStaff.append(eval(line[""][0])(line))
 
+        CloseMultiVoice()
 
         for staff in self.Staff:
             if staff.Span["dynamicvar"]:
@@ -183,7 +203,6 @@ class AddStaff:
         self.NumTimeSig = False
         self.Endbar = "|."
         self.Clef = ["treble", 0] #octave down: 7, octave up: -7
-        self.Measure = [None]
         self.Progress = 0
         self.Partial = None
         self.Visible = True
@@ -203,6 +222,7 @@ class AddStaff:
                       "sustain": (0, 0),
                       "text": ""}
 
+        CloseMultiVoice()
         CurStaff = self
         self.Measure = [None]
 
@@ -231,8 +251,58 @@ class AddStaff:
                 for a in item: yield a
             yield "\\bar\"" + self.Endbar + "\"}\n}\n"
 
-class MultiVoice:
-    pass
+class MultiVoiceStart:
+    def __init__(self):
+        global CurMultiVoice
+        CurMultiVoice = MultiVoiceEnd()
+
+    def print(self):
+        yield "<<{"
+
+class MultiVoiceEnd:
+    def __init__(self):
+        self.Voice = []
+        self.Progress = 0
+
+    def getMain(self):
+        for Voice in self.Voice:
+            if Voice.Progress == CurStaff.Progress:
+                return Voice
+            if Voice.Progress < CurStaff.Progress:
+                Voice.fill(CurStaff.Progress)
+                return Voice
+        else:
+            self.Voice.append(MultiVoice())
+            return self.Voice[-1]
+
+    def getProgress(self):
+        return min(a.Progress for a in self.Voice)
+
+    def fill(self, Progress):
+        map(partial(MultiVoice.fill, Progress=Progress), self.Voice)
+
+    def print(self):
+        for item in (a.print() for a in self.Voice if a):
+            yield "}\\\\\\relative b'{"
+            for a in item: yield a
+        yield "}>>"
+
+class MultiVoice(AddStaff):
+    def __init__(self):
+        self.PrevNote = [0, ""] #pos, dur
+        self.Progress = 0
+        self.Visible = True
+
+        self.Measure = [None]
+
+    def fill(self, Progress):
+        if self.Progress < Progress:
+            line = Tokenise("|Rest|Dur:Whole")
+            self.append( Expression("Rest", Dur(line["Dur"]), None, ["s", "1*%s" % (Progress - self.Progress), ""], line) )
+
+    def print(self):
+        for item in (a.print() for a in self.Measure if a):
+            for a in item: yield a
 
 def barWrap(cls):
 
@@ -260,6 +330,7 @@ class Bar:
     Newline = False
 
     def __init__(self, line):
+        global CurMultiVoice
         self.Style = line.get("Style", ["Single"])[0]
         self.Repeat = line.get("Repeat", [None])[0]
         self.Fermata = CurStaff.Delay["fermata"]
@@ -273,6 +344,12 @@ class Bar:
         if CurStaff.Progress >= Fraction(CurStaff.Time) or CurStaff.Partial == None:
             if CurStaff.Partial == None:
                 CurStaff.Partial = 0 if CurStaff.Progress >= Fraction(CurStaff.Time) else CurStaff.Progress
+            if CurMultiVoice:
+                if CurMultiVoice.getProgress == 0:
+                    CurStaff.append(CurMultiVoice)
+                    CurMultiVoice = None
+                else:
+                    CurMultiVoice.fill(CurStaff.Progress)
             CurStaff.Progress = 0
             self.Newline = True
 
@@ -350,6 +427,7 @@ def DynamicVariance(line):
 
 #Chord FIXME
 ##open new voice if notes overlap
+
 def NoteName(pitch, PrevNote):
     note = ""
     tie = ""
@@ -373,7 +451,9 @@ def NoteName(pitch, PrevNote):
 
     return note, tie
 
-def ChordName(Pos):
+def ChordName(Pos, CurStaff=None):
+    if CurStaff == None:
+        CurStaff = globals()["CurStaff"]
     note = "<"
     note += "".join(NoteName(Pitch(Pos[0]), CurStaff.PrevNote)) + " "
     localPrevNote = list(CurStaff.PrevNote)
@@ -399,6 +479,22 @@ def Chord(line):
     note[0] = ChordName(line["Pos"])
     note[1] = dur["length"]
 
+# Voice2
+    if "Dur2" in line:
+        if not CurMultiVoice:
+            CurStaff.append(MultiVoiceStart())
+
+        note2 = ["", "", ""]
+        dur2 = Dur(line["Dur2"])
+
+        if "Pos2" not in line:
+            print("Err: position not found in %s" % line[""], file=sys.stderr)
+            return None
+
+        note2[0] = ChordName(line["Pos2"], CurMultiVoice.getMain())
+        note2[1] = dur2["length"]
+
+        CurMultiVoice.getMain().append(Expression(Type, dur2, None, note2, line))
     return Expression(Type, dur, None, note, line)
 
 def Note(line):
