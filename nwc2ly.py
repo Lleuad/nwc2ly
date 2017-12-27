@@ -253,6 +253,7 @@ class AddStaff:
             yield "\\bar\"" + self.Endbar + "\"}\n}\n"
 
 class MultiVoiceStart:
+    """MultiVoiceStart"""
     def __init__(self):
         global CurMultiVoice
         CurMultiVoice = MultiVoiceEnd()
@@ -261,9 +262,9 @@ class MultiVoiceStart:
         yield "<<{"
 
 class MultiVoiceEnd:
+    """MultiVoiceEnd"""
     def __init__(self):
         self.Voice = []
-        self.Progress = 0
 
     def getMain(self):
         for Voice in self.Voice:
@@ -278,6 +279,9 @@ class MultiVoiceEnd:
 
     def getProgress(self):
         return min(a.Progress for a in self.Voice)
+
+    def resetProgress(self):
+        for Voice in self.Voice: Voice.Progress = 0
 
     def fill(self, Progress):
         map(partial(MultiVoice.fill, Progress=Progress), self.Voice)
@@ -350,11 +354,12 @@ class Bar:
                     CurStaff.Partial = CurStaff.Progress
                     CurStaff.BarNumber -= 1
             if CurMultiVoice:
-                if CurMultiVoice.getProgress == 0:
+                if CurMultiVoice.getProgress() == 0:
                     CurStaff.append(CurMultiVoice)
                     CurMultiVoice = None
                 else:
                     CurMultiVoice.fill(CurStaff.Progress)
+                    CurMultiVoice.resetProgress()
             CurStaff.Progress = 0
             self.Newline = True
             self.BarNumber = CurStaff.BarNumber
