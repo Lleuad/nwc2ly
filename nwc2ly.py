@@ -346,9 +346,9 @@ class Bar:
         if CurStaff.Progress >= Fraction(CurStaff.Time) or CurStaff.Partial == None:
             if CurStaff.Partial == None:
                 CurStaff.Partial = 0
-                    if CurStaff.Progress < Fraction(CurStaff.Time):
-                        CurStaff.Partial = CurStaff.Progress
-                        CurStaff.BarNumber -= 1
+                if CurStaff.Progress < Fraction(CurStaff.Time):
+                    CurStaff.Partial = CurStaff.Progress
+                    CurStaff.BarNumber -= 1
             if CurMultiVoice:
                 if CurMultiVoice.getProgress == 0:
                     CurStaff.append(CurMultiVoice)
@@ -388,7 +388,7 @@ class Bar:
 
         if self.Newline:
             if not self.BarNumber % 5:
-                yield "%% %d" % (self.BarNumber, )
+                yield " %% %d" % (self.BarNumber, )
             yield "\n\t"
 
 class Clef:
