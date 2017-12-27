@@ -204,6 +204,7 @@ class AddStaff:
         self.Endbar = "|."
         self.Clef = ["treble", 0] #octave down: 7, octave up: -7
         self.Progress = 0
+        self.BarNumber = CurPage.StartingBar
         self.Partial = None
         self.Visible = True
 
@@ -328,6 +329,7 @@ class Bar:
     Repeat = None
     Fermata = 0
     Newline = False
+    BarNumber = 0
 
     def __init__(self, line):
         global CurMultiVoice
@@ -352,6 +354,8 @@ class Bar:
                     CurMultiVoice.fill(CurStaff.Progress)
             CurStaff.Progress = 0
             self.Newline = True
+            self.BarNumber = CurStaff.BarNumber
+            CurStaff.BarNumber += 1
 
         CurStaff.Key[1].update(CurStaff.Key[0])
 
@@ -375,11 +379,13 @@ class Bar:
         elif self.Repeat:
             if self.Style == "LocalRepeatCloseOpen":
                 yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
-            yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat,)
+            yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat, )
 
         yield table.bar.get(self.Style, "|")
 
         if self.Newline:
+            if not self.BarNumber % 5:
+                yield "%% %d" % (self.BarNumber, )
             yield "\n\t"
 
 class Clef:
