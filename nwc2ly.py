@@ -1,4 +1,4 @@
-#!/bin/python
+#!/bin/python3
 import table, sys, os, tempfile
 from itertools import chain
 from functools import partial
