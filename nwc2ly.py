@@ -392,8 +392,10 @@ class Bar:
         yield table.bar.get(self.Style, "|")
 
         if self.Newline:
-            if not self.BarNumber % 5:
+            if self.BarNumber and not self.BarNumber % 5:
                 yield " %% %d" % (self.BarNumber, )
+            if self.Style == "SectionClose":
+                yield "\n\n"
             yield "\n\t"
 
 class Clef:

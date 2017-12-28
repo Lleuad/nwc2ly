@@ -6,7 +6,7 @@ bar = {
 "BrokenSingle": "\\bar\"!\"",
 "BrokenDouble": "\\bar\"!!\"",
 "SectionOpen": "\\bar\".|\"",
-"SectionClose": "\\bar\"|.\"\n\n",
+"SectionClose": "\\bar\"|.\"",
 "SectionCloseOpen": "\\bar\"|.|\"",
 "LocalRepeatOpen": "\\bar\"||:\"",
 "LocalRepeatClose": "\\bar\":||\"",
