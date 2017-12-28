@@ -204,6 +204,7 @@ class AddStaff:
         self.Endbar = "|."
         self.Clef = ["treble", 0] #octave down: 7, octave up: -7
         self.Progress = 0
+        self.BarNumber = CurPage.StartingBar
         self.Partial = None
         self.Visible = True
 
@@ -252,6 +253,7 @@ class AddStaff:
             yield "\\bar\"" + self.Endbar + "\"}\n}\n"
 
 class MultiVoiceStart:
+    """MultiVoiceStart"""
     def __init__(self):
         global CurMultiVoice
         CurMultiVoice = MultiVoiceEnd()
@@ -260,9 +262,9 @@ class MultiVoiceStart:
         yield "<<{"
 
 class MultiVoiceEnd:
+    """MultiVoiceEnd"""
     def __init__(self):
         self.Voice = []
-        self.Progress = 0
 
     def getMain(self):
         for Voice in self.Voice:
@@ -277,6 +279,9 @@ class MultiVoiceEnd:
 
     def getProgress(self):
         return min(a.Progress for a in self.Voice)
+
+    def resetProgress(self):
+        for Voice in self.Voice: Voice.Progress = 0
 
     def fill(self, Progress):
         map(partial(MultiVoice.fill, Progress=Progress), self.Voice)
@@ -328,6 +333,7 @@ class Bar:
     Repeat = None
     Fermata = 0
     Newline = False
+    BarNumber = 0
 
     def __init__(self, line):
         global CurMultiVoice
@@ -343,15 +349,21 @@ class Bar:
 
         if CurStaff.Progress >= Fraction(CurStaff.Time) or CurStaff.Partial == None:
             if CurStaff.Partial == None:
-                CurStaff.Partial = 0 if CurStaff.Progress >= Fraction(CurStaff.Time) else CurStaff.Progress
+                CurStaff.Partial = 0
+                if CurStaff.Progress < Fraction(CurStaff.Time):
+                    CurStaff.Partial = CurStaff.Progress
+                    CurStaff.BarNumber -= 1
             if CurMultiVoice:
-                if CurMultiVoice.getProgress == 0:
+                if CurMultiVoice.getProgress() == 0:
                     CurStaff.append(CurMultiVoice)
                     CurMultiVoice = None
                 else:
                     CurMultiVoice.fill(CurStaff.Progress)
+                    CurMultiVoice.resetProgress()
             CurStaff.Progress = 0
             self.Newline = True
+            self.BarNumber = CurStaff.BarNumber
+            CurStaff.BarNumber += 1
 
         CurStaff.Key[1].update(CurStaff.Key[0])
 
@@ -375,11 +387,13 @@ class Bar:
         elif self.Repeat:
             if self.Style == "LocalRepeatCloseOpen":
                 yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
-            yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat,)
+            yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat, )
 
         yield table.bar.get(self.Style, "|")
 
         if self.Newline:
+            if not self.BarNumber % 5:
+                yield " %% %d" % (self.BarNumber, )
             yield "\n\t"
 
 class Clef:
