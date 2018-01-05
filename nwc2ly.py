@@ -378,6 +378,7 @@ class Bar:
                 if CurMultiVoice.Progress == 0: #CurMultiVoice.getProgress() == 0:
                     CurStaff.append(CurMultiVoice)
                     CurMultiVoice = None
+                    CurStaff.PrevNote[1] = 0
                 else:
                     CurMultiVoice.fill(CurStaff.Progress)
                     #CurMultiVoice.resetProgress()
