@@ -266,7 +266,8 @@ class MultiVoiceEnd:
     def __init__(self):
         self.Voice = []
 
-    def getMain(self):
+    @property
+    def MainVoice(self):
         for Voice in self.Voice:
             if Voice.Progress == CurStaff.Progress:
                 return Voice
@@ -277,14 +278,34 @@ class MultiVoiceEnd:
             self.Voice.append(MultiVoice())
             return self.Voice[-1]
 
-    def getProgress(self):
+    #def getMain(self):
+    #    for Voice in self.Voice:
+    #        if Voice.Progress == CurStaff.Progress:
+    #            return Voice
+    #        if Voice.Progress < CurStaff.Progress:
+    #            Voice.fill(CurStaff.Progress)
+    #            return Voice
+    #    else:
+    #        self.Voice.append(MultiVoice())
+    #        return self.Voice[-1]
+
+    @property
+    def Progress(self):
         return min(a.Progress for a in self.Voice)
 
-    def resetProgress(self):
-        for Voice in self.Voice: Voice.Progress = 0
+    @Progress.setter
+    def Progress(self, value):
+        for Voice in self.Voice: Voice.Progress = value
+
+    #def getProgress(self):
+    #    return min(a.Progress for a in self.Voice)
+    #
+    #def resetProgress(self):
+    #    for Voice in self.Voice: Voice.Progress = 0
 
     def fill(self, Progress):
-        map(partial(MultiVoice.fill, Progress=Progress), self.Voice)
+        for Voice in self.Voice: Voice.fill(Progress)
+        #map(partial(MultiVoice.fill, Progress=Progress), self.Voice)
 
     def print(self):
         for item in (a.print() for a in self.Voice if a):
@@ -354,12 +375,13 @@ class Bar:
                     CurStaff.Partial = CurStaff.Progress
                     CurStaff.BarNumber -= 1
             if CurMultiVoice:
-                if CurMultiVoice.getProgress() == 0:
+                if CurMultiVoice.Progress == 0: #CurMultiVoice.getProgress() == 0:
                     CurStaff.append(CurMultiVoice)
                     CurMultiVoice = None
                 else:
                     CurMultiVoice.fill(CurStaff.Progress)
-                    CurMultiVoice.resetProgress()
+                    #CurMultiVoice.resetProgress()
+                    CurMultiVoice.Progress = 0
             CurStaff.Progress = 0
             self.Newline = True
             self.BarNumber = CurStaff.BarNumber
@@ -504,10 +526,12 @@ def Chord(line):
             print("Err: position not found in %s" % line[""], file=sys.stderr)
             return None
 
-        note2[0] = ChordName(line["Pos2"], CurMultiVoice.getMain())
+        #note2[0] = ChordName(line["Pos2"], CurMultiVoice.getMain())
+        note2[0] = ChordName(line["Pos2"], CurMultiVoice.MainVoice)
         note2[1] = dur2["length"]
 
-        CurMultiVoice.getMain().append(Expression(Type, dur2, None, note2, line))
+        #CurMultiVoice.getMain().append(Expression(Type, dur2, None, note2, line))
+        CurMultiVoice.MainVoice.append(Expression(Type, dur2, None, note2, line))
     return Expression(Type, dur, None, note, line)
 
 def Note(line):
