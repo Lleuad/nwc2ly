@@ -315,7 +315,8 @@ class MultiVoiceEnd:
 
 class MultiVoice(AddStaff):
     def __init__(self):
-        self.PrevNote = [0, ""] #pos, dur
+        self.PrevNote = [CLEFDIFF[CurStaff.Clef[0]] + CurStaff.Clef[1], ""] #pos, dur
+
         self.Progress = 0
         self.Visible = True
 
