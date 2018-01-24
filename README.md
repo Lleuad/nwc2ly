@@ -1,5 +1,5 @@
 # nwc2ly
-A line by line converter from [NoteWorthy Composer](https://noteworthycomposer.com/)'s nwctxt file to [LilyPond](http://lilypond.org/).
+A line by line converter from [NoteWorthy Composer](https://noteworthycomposer.com/)'s filetypes to [LilyPond](http://lilypond.org/).
 
 The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't known for its pretty output after all. The main priority is to produce an easily editable file (relative mode, bar checks, etc.) and do any final tweaks in LilyPond, while still being able to do most of the grunt work in NoteWorthy.
 
@@ -26,11 +26,13 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 #### without CLI
 run `nwc2ly.py` and select the input file from the filedialog.
 #### with CLI
-save to file:
-<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt <i>lilypondfile</i>.ly</code>
+save to file:<br>
+<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt <i>lilypondfile</i>.ly</code><br>
+<code>python nwc2ly.py <i>nwcfile</i>.nwc <i>lilypondfile</i>.ly</code>
 
-pipe directly into lilypond:
-<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt - | lilypond --pdf -o <i>pdfout</i>.pdf -</code>
+pipe directly into lilypond:<br>
+<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt - | lilypond --pdf -o <i>pdfout</i>.pdf -</code><br>
+<code>python nwc2ly.py <i>nwcfile</i>.nwc - | lilypond --pdf -o <i>pdfout</i>.pdf -</code>
 
 ### License ###
 
