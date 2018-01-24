@@ -1,5 +1,5 @@
 #!/bin/python3
-import table, sys, os, tempfile
+import table, sys, os, tempfile, zlib
 from itertools import chain
 from functools import partial
 from fractions import Fraction
@@ -7,26 +7,6 @@ from fractions import Fraction
 CurPage = None
 CurStaff = None
 CurMultiVoice = None
-
-#IF = ["NWCTXT/SONG1",
-#      "NWCTXT/RegressionTests/Bar",
-#      "NWCTXT/RegressionTests/TempoVariance",
-#      "NWCTXT/RegressionTests/Rest",
-#      "NWCTXT/RegressionTests/Time",
-#      "NWCTXT/RegressionTests/Clef",
-#      "NWCTXT/RegressionTests/Upbeat",
-#      "NWCTXT/RegressionTests/Key",
-#      "NWCTXT/RegressionTests/RestMultiBar",
-#      "NWCTXT/RegressionTests/DynamicVar",
-#      "NWCTXT/RegressionTests/Flow",
-#      "NWCTXT/RegressionTests/PerformanceStyle",
-#      "NWCTXT/RegressionTests/Tempo",
-#      "NWCTXT/RegressionTests/Text",
-#      "NWCTXT/RegressionTests/Note",
-#      "NWCTXT/RegressionTests/Blaaskwintet",
-#      "NWCTXT/RegressionTests/Chord",
-#][-1] + ".nwctxt"
-#OF = sys.stdout
 
 #FIXME cleanup
 if sys.argv.__len__() > 1:
@@ -64,6 +44,50 @@ NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 def Direction(p): return 1 if float(p) > -1 else -1
+
+_open = open
+class open():
+    lines = []
+    unused = b""
+
+    def __init__(self, path, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+        self.path = path
+        self.f = _open(path, "rb")
+        self.errors = errors
+        if self.f.read(5) != b'[NWZ]':
+            self.f.close()
+            self.f = _open(self.path, "r", buffering, encoding, errors, newline, closefd, opener)
+        else:
+            self.f.seek(1,1)
+
+        self.decompress = zlib.decompressobj()
+
+    def __enter__(self):
+        if self.f.mode == "r":
+            return self.f
+        else:
+            return self
+
+    def __exit__(self, type, value, traceback):
+        if not self.f.closed:
+            self.f.close()
+        return False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while not self.lines:
+            data = self.f.read(64)
+            if not data: raise StopIteration()
+
+            s = self.unused + self.decompress.decompress(data)
+            self.lines.extend(s.replace(b"\r", b"\n").replace(b"\n\n", b"\n").splitlines(keepends=True))
+            if self.lines and self.lines[-1][-1] != b"\n":
+                self.unused = self.lines.pop()
+
+        return self.lines.pop(0).decode("utf-8", self.errors)
+
 def CloseMultiVoice():
     global CurMultiVoice
     if CurMultiVoice:
