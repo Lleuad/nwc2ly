@@ -16,7 +16,8 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 * Flow markings (coda, D.C., etc.)
 
 ### Still working on:
-see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
+* Multiple voices. It'll accept them, but it is still quite buggy and will require some cleanup.
+* see [issues](../../issues?q=is%3Aopen+is%3Aissue+label%3A%22new+feature%22 "issues")
 
 ### Requirements
 * python 3.2 or later
