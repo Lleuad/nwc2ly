@@ -164,11 +164,11 @@ def Dur(dur):
 
 class Page:
     #SongInfo
-    Title = ""
-    Author = ""
-    Lyricist = ""
-    Copyright1 = ""
-    Copyright2 = ""
+    Title = "\"\""
+    Author = "\"\""
+    Lyricist = "\"\""
+    Copyright1 = "\"\""
+    Copyright2 = "\"\""
 
     #PgSetup
     BarNumbers = None
@@ -190,6 +190,12 @@ class Page:
                     self.Staff.pop()
 
                 self.Staff.append(AddStaff(line))
+            elif line[""][0] == "SongInfo":
+                self.Title = line.get("Title", "\"\"")[0]
+                self.Author = line.get("Author", "\"\"")[0]
+                self.Lyricist = line.get("Lyricist", "\"\"")[0]
+                self.Copyright1 = line.get("Copyright1", "\"\"")[0]
+                self.Copyright2 = line.get("Copyright2", "\"\"")[0]
             elif callable(globals().get(line[""][0], None)):
                 CurStaff.append(eval(line[""][0])(line))
 
@@ -213,6 +219,22 @@ class Page:
             yield "\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n"
         if self.Ceasura:
             yield "caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #\"scripts.caesura.straight\" \\breathe}\n"
+
+        yield "\header{\n"
+        if self.Title != "\"\"":
+            yield "\ttitle = %s\n" % (self.Title, )
+        if self.Author != "\"\"":
+            yield "\tcomposer = %s\n" % (self.Author, )
+        if self.Lyricist != "\"\"":
+            yield "\tpoet = %s\n" % (self.Lyricist, )
+        if self.Copyright1  != "\"\"" and self.Copyright2 != "\"\"":
+            yield "\tcopyright = \\markup\\center-column{%s%s}\n" % (self.Copyright1, self.Copyright2)
+        elif self.Copyright1 != "\"\"":
+            yield "\tcopyright = %s\n" % (self.Copyright1, )
+        elif self.Copyright2 != "\"\"":
+            yield "\tcopyright = %s\n" % (self.Copyright2, )
+        yield "\ttagline = \"\"\n}\n"
+
         yield "\n\\score{<<\n"
         for item in (a.print() for a in self.Staff if a):
             for a in item: yield a
