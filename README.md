@@ -14,6 +14,7 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 * sustain pedal marks
 * all performance styles (sostenuto, maestoso, etc.)
 * Flow markings (coda, D.C., etc.)
+* Song info (Title, Author, etc.)
 
 ### Still working on:
 * Multiple voices. It'll accept them, but it is still quite buggy and will require some cleanup.
