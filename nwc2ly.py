@@ -1,5 +1,5 @@
 #!/bin/python3
-import table, sys, os, tempfile, zlib
+import sys, os, tempfile, zlib, configparser
 from itertools import chain
 from functools import partial
 from fractions import Fraction
@@ -7,6 +7,8 @@ from fractions import Fraction
 CurPage = None
 CurStaff = None
 CurMultiVoice = None
+Config = configparser.ConfigParser()
+Config.read("settings.ini")
 
 #FIXME cleanup
 if sys.argv.__len__() > 1:
@@ -459,7 +461,7 @@ class Bar:
                 yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
             yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat, )
 
-        yield table.bar.get(self.Style, "|")
+        yield Config["bar"].get(self.Style, "|")
 
         if self.Newline:
             if self.BarNumber and not self.BarNumber % 5:
@@ -501,8 +503,8 @@ def Dynamic(line):
 
 def DynamicVariance(line):
     if "Style" in line:
-        if line["Style"][0] in table.dynamic:
-            CurStaff.Delay["dynamicvar"] = (table.dynamic[line["Style"][0]], Direction(line.get("Pos", ["0"])[0]))
+        if line["Style"][0] in Config["dynamic"]:
+            CurStaff.Delay["dynamicvar"] = (Config["dynamic"].get(line["Style"][0], ""), Direction(line.get("Pos", ["0"])[0]))
             CurStaff.Span["dynamicvar"] = ""
         else:
             print("Err: DynamicVariance style \"%s\" not recognised" % (line["Style"][0], ), file=sys.stderr)
@@ -759,7 +761,7 @@ class Expression:
         if self.DynamicVar[1]:
             yield "%s\\%s" %("^" if self.DynamicVar[1] == 1 else "", self.DynamicVar[0])
         if self.Tempovar[1]:
-            yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", table.tempovar[self.Tempovar[0]])
+            yield "%s\\markup\\small\\italic\"%s\"" %("^" if self.Tempovar[1] == 1 else "_", Config["tempovar"].get(self.Tempovar[0], ""))
         if self.Sustain[1]:
             yield "%s\\%s" % ("" if self.Sustain[1] == 1 else "", "sustainOn" if self.Sustain[0] == 1 else "sustainOff")
         if self.Text:
@@ -784,7 +786,7 @@ class Flow:
         if self.Flow:
             if self.Direction == -1:
                 yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
-            yield "\\mark\\markup%s" % (table.flow[self.Flow], )
+            yield "\\mark\\markup%s" % (Config["flow"].get(self.Flow, ""), )
         else:
             yield ""
 
@@ -829,7 +831,7 @@ class PerformanceStyle:
         if self.Style:
             if self.Direction == -1:
                 yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
-            yield "\\mark\\markup\\italic\\bold\\large\"%s\" " % (table.performstyle[self.Style], )
+            yield "\\mark\\markup\\italic\\bold\\large\"%s\" " % (Config["performstyle"].get(self.Style, ""), )
         else:
             yield ""
 
@@ -863,7 +865,7 @@ class RestMultiBar:
 def StaffProperties(line):
     #FIXME system connections "WithNextStaff"
     if "EndingBar" in line:
-        CurStaff.Endbar = table.endbar.get(line["EndingBar"][0], "|.")
+        CurStaff.Endbar = Config["endbar"].get(line["EndingBar"][0], "|.")
     if "Visible" in line and line["Visible"] == "N":
         CurStaff.Visible = False
 
@@ -881,7 +883,7 @@ class Tempo:
 
     def __init__(self, line):
         if "Tempo" in line:
-            self.Base = table.tempo[line.get("Base", ["Quarter"])[0]]
+            self.Base = Config["tempo"].get(line.get("Base", ["Quarter"])[0], "")
             self.Tempo = line["Tempo"][0]
         if "Text" in line:
             self.Text = line["Text"][0]
@@ -901,7 +903,7 @@ def TempoVarWrap(cls):
     def wrapper(line):
         if line.get("Style",[""])[0] == "Fermata":
             CurStaff.Delay["fermata"] = Direction(line.get("Pos", ["0"])[0])
-        elif line.get("Style", [""])[0] in table.tempovar:
+        elif line.get("Style", [""])[0] in Config["tempovar"]:
             CurStaff.Delay["tempovar"] = (line["Style"][0], Direction(line.get("Pos", ["0"])[0]))
 
         else:
@@ -935,12 +937,12 @@ def Text(line):
     if "Text" in line:
         text = "^" if Direction(line.get("Pos", ["0"])[0]) == 1 else "_"
 
-        if line["Text"][0][1:-1] in table.textcmd:
-            text += table.textcmd[line["Text"][0][1:-1]]
-        elif line.get("Font", [""])[0] == "StaffCueSymbols" and line["Text"][0][1:-1] in table.textsmall:
-            text += table.textsmall[line["Text"][0][1:-1]]
-        elif line.get("Font", [""])[0] == "StaffSymbols" and line["Text"][0][1:-1] in table.textlarge:
-            text += table.textlarge[line["Text"][0][1:-1]]
+        if line["Text"][0][1:-1] in Config["textcmd"]:
+            text += Config["textcmd"].get(line["Text"][0][1:-1], "")
+        elif line.get("Font", [""])[0] == "StaffCueSymbols" and line["Text"][0][1:-1] in Config["textsmall"]:
+            text += Config["textsmall"].get(line["Text"][0][1:-1], "")
+        elif line.get("Font", [""])[0] == "StaffSymbols" and line["Text"][0][1:-1] in Config["textlarge"]:
+            text += Config["textlarge"].get(line["Text"][0][1:-1], "")
         else:
             if line.get("Font", [""])[0] == "StaffItalic":
                 text += "\\markup\\italic"

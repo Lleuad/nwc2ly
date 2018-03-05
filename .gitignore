@@ -10,3 +10,4 @@ regrestest
 *.ly
 *.sw*
 *.pdf
+table.py
