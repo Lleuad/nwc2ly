@@ -8,7 +8,8 @@ CurPage = None
 CurStaff = None
 CurMultiVoice = None
 Config = configparser.ConfigParser()
-Config.read("settings.ini")
+Config.read(os.path.join(os.path.dirname(os.path.realpath(__file__)), "settings.ini"))
+
 
 #FIXME cleanup
 if sys.argv.__len__() > 1:
