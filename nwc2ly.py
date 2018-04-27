@@ -19,7 +19,7 @@ else:
     from tkinter import filedialog
     tkinter.Tk().withdraw()
 
-    IF = filedialog.askopenfilename(filetypes=[("NWC Text File", "*.nwctxt")])
+    IF = filedialog.askopenfilename(filetypes=[("NWC Text File", ("*.nwc","*.nwctxt"))])
 
 if sys.argv.__len__() > 2:
     OF = sys.argv[2]
