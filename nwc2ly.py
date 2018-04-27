@@ -786,7 +786,7 @@ class Flow:
         if self.Flow:
             if self.Direction == -1:
                 yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
-            yield "\\mark\\markup%s" % (Config["flow"].get(self.Flow, ""), )
+            yield "\\mark\\markup%s%s" % (Config["flow"].get("Markup",""), Config["flow"].get(self.Flow, ""), )
         else:
             yield ""
 
@@ -831,7 +831,8 @@ class PerformanceStyle:
         if self.Style:
             if self.Direction == -1:
                 yield "\\once\\override Score.RehearsalMark.direction = #DOWN "
-            yield "\\mark\\markup\\italic\\bold\\large\"%s\" " % (Config["performstyle"].get(self.Style, ""), )
+            #yield "\\mark\\markup\\italic\\bold\\large\"%s\" " % (Config["performstyle"].get(self.Style, ""), )
+            yield "\\mark\\markup%s%s " % (Config["performstyle"].get("Markup", "\\italic\\bold\\large"), Config["performstyle"].get(self.Style, ""), )
         else:
             yield ""
 
