@@ -99,71 +99,71 @@ def CloseMultiVoice():
         CurMultiVoice = None
 
 def Pitch(pos):
-	pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
-	if not pos[0].isdigit() and pos[0] != '-':
-		pitch['accidental'] = pos[0]
-		pos = pos[1:]
-	if not pos[-1].isdigit() and pos[-1] == '^':
-		pitch['tie'] = True
-		pos = pos[:-1]
-	if not pos[-1].isdigit():
-		pitch['head'] = pos[-1]
-		pos = pos[:-1]
-	if pos.replace('-','',1).isdigit():
-		pitch['pitch'] = int(pos)
-	else:
-		printErr("%s is not a number" % (pos,))
-		exit()
-	
-	return pitch
+        pitch = {'accidental': '', 'pitch': 0, 'head': 'o', 'tie': False}
+        if not pos[0].isdigit() and pos[0] != '-':
+                pitch['accidental'] = pos[0]
+                pos = pos[1:]
+        if not pos[-1].isdigit() and pos[-1] == '^':
+                pitch['tie'] = True
+                pos = pos[:-1]
+        if not pos[-1].isdigit():
+                pitch['head'] = pos[-1]
+                pos = pos[:-1]
+        if pos.replace('-','',1).isdigit():
+                pitch['pitch'] = int(pos)
+        else:
+                printErr("%s is not a number" % (pos,))
+                exit()
+
+        return pitch
 
 def Dur(dur):
-	duration = {'length': '4',
-	            'triplet': None,
-	            'grace': False,
-	            'staccato': False,
-	            'staccatissimo': False,
-	            'tenuto': False,
-	            'marcato': False,
-	            'accent': False,
-	            'slur': False}
-	if dur[0] == 'Whole':
-		duration['length'] = '1'
-	elif dur[0] == 'Half':
-		duration['length'] = '2'
-	elif dur[0][:-2].isdigit():
-		duration['length'] = dur[0][:-2]
-	else:
-		printErr("%s is not a number" % (dur[0][:-2],))
-	
-	if 'DblDotted' in dur:
-		duration['length'] += '..'
-	elif 'Dotted' in dur:
-		duration['length'] += '.'
-	
-	if 'Triplet=First' in dur:
-		duration['triplet'] = 'first'
-	elif 'Triplet' in dur:
-		duration['triplet'] = True
-	elif 'Triplet=End' in dur:
-		duration['triplet'] = 'end'
-	
-	if 'Grace' in dur:
-		duration['grace'] = True
-	if 'Staccato' in dur:
-		duration['staccato'] = True
-	if 'Tenuto' in dur:
-		duration['tenuto'] = True
-	if 'Slur' in dur:
-		duration['slur'] = True
-	if 'Accent' in dur:
-		duration['accent'] = True
-	if 'Marcato' in dur:
-		duration['marcato'] = True
-	if 'Staccatissimo' in dur:
-		duration['staccatissimo'] = True
-	
-	return duration
+        duration = {'length': '4',
+                    'triplet': None,
+                    'grace': False,
+                    'staccato': False,
+                    'staccatissimo': False,
+                    'tenuto': False,
+                    'marcato': False,
+                    'accent': False,
+                    'slur': False}
+        if dur[0] == 'Whole':
+                duration['length'] = '1'
+        elif dur[0] == 'Half':
+                duration['length'] = '2'
+        elif dur[0][:-2].isdigit():
+                duration['length'] = dur[0][:-2]
+        else:
+                printErr("%s is not a number" % (dur[0][:-2],))
+
+        if 'DblDotted' in dur:
+                duration['length'] += '..'
+        elif 'Dotted' in dur:
+                duration['length'] += '.'
+
+        if 'Triplet=First' in dur:
+                duration['triplet'] = 'first'
+        elif 'Triplet' in dur:
+                duration['triplet'] = True
+        elif 'Triplet=End' in dur:
+                duration['triplet'] = 'end'
+
+        if 'Grace' in dur:
+                duration['grace'] = True
+        if 'Staccato' in dur:
+                duration['staccato'] = True
+        if 'Tenuto' in dur:
+                duration['tenuto'] = True
+        if 'Slur' in dur:
+                duration['slur'] = True
+        if 'Accent' in dur:
+                duration['accent'] = True
+        if 'Marcato' in dur:
+                duration['marcato'] = True
+        if 'Staccatissimo' in dur:
+                duration['staccatissimo'] = True
+
+        return duration
 
 class Page:
     #SongInfo
@@ -868,7 +868,7 @@ def StaffProperties(line):
     #FIXME system connections "WithNextStaff"
     if "EndingBar" in line:
         CurStaff.Endbar = Config["endbar"].get(line["EndingBar"][0], "|.")
-    if "Visible" in line and line["Visible"] == "N":
+    if "Visible" in line and line["Visible"][0] == "N":
         CurStaff.Visible = False
 
     return None
