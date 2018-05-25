@@ -47,6 +47,13 @@ NOTES = {"treble":     ['b', 'c', 'd', 'e', 'f', 'g', 'a'],
 
 def Tokenise(s): return {a[0]:a[1].split(',') for a in (a.split(':') for a in (':' + str(s)[1:]).split('|')) }
 def Direction(p): return 1 if float(p) > -1 else -1
+def Visible(v):
+    if v == "TopStaff" and len(CurPage.Staff) == 1:
+        return True
+    if v == "Always":
+        return True
+    else:
+        return False
 
 _open = open
 class open():
@@ -412,6 +419,7 @@ class Bar:
         self.Repeat = line.get("Repeat", [None])[0]
         self.Fermata = CurStaff.Delay["fermata"]
         CurStaff.Delay["fermata"] = 0
+        self.Visible = Visible(line.get("Visibility", ["Always"])[0])
 
         if self.Style == "BrokenDouble":
             CurPage.BrokenDouble = True
@@ -462,7 +470,10 @@ class Bar:
                 yield "\\once\\override Score.RehearsalMark.extra-offset = #\'(-.6 . 0) "
             yield "\\mark\\markup\\small\"(%s)\"" % (self.Repeat, )
 
-        yield Config["bar"].get(self.Style, "|")
+        if self.Visible:
+            yield Config["bar"].get(self.Style, "|")
+        else:
+            yield "\\once\\hide Staff.BarLine"
 
         if self.Newline:
             if self.BarNumber and not self.BarNumber % 5:
@@ -494,7 +505,13 @@ class Clef:
             yield "\\clef %s " % (self.Clef, )
 
 def Dynamic(line):
-    if "Style" in line:
+    if not Visible(line.get("Visibility", ["Always"])[0]):
+        if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]):
+            cls = CurStaff.rfind("Expression")
+            if not cls.DynamicSpan in ["cresc", "decresc"]:
+                CurStaff.Span["dynamicvar"] = ""
+                cls.DynamicSpan = "off"
+    elif "Style" in line:
         if CurStaff.Delay["dynamic"][0] == "f" and line["Style"][0] == "p":
             CurStaff.Delay["dynamic"] = ("fp", Direction(line.get("Pos", ["0"])[0]))
         else:
@@ -562,7 +579,7 @@ def Chord(line):
         print("Err: position not found in %s" % line[""], file=sys.stderr)
         return None
 
-    note[0] = ChordName(line["Pos"])
+    note[0] = ChordName(line["Pos"]) if Visible(line.get("Visibility", ["Always"])[0]) else "s"
     note[1] = dur["length"]
 
 # Voice2
@@ -578,7 +595,7 @@ def Chord(line):
             return None
 
         #note2[0] = ChordName(line["Pos2"], CurMultiVoice.getMain())
-        note2[0] = ChordName(line["Pos2"], CurMultiVoice.MainVoice)
+        note2[0] = ChordName(line["Pos2"], CurMultiVoice.MainVoice) if Visible(line.get("Visibility", ["Always"])[0]) else "s"
         note2[1] = dur2["length"]
 
         #CurMultiVoice.getMain().append(Expression(Type, dur2, None, note2, line))
@@ -600,7 +617,10 @@ def Note(line):
         print("Err: position not found in %s" % line[""], file=sys.stderr)
         return None
 
-    note[0],note[2] = NoteName(pitch, CurStaff.PrevNote)
+    if Visible(line.get("Visibility", ["Always"])[0]):
+        note[0],note[2] = NoteName(pitch, CurStaff.PrevNote)
+    else:
+        note[0] = "s"
     note[1] = dur["length"]
 
     return Expression(Type, dur, None, note, line)
@@ -622,6 +642,8 @@ def Rest(line):
         if Fraction(CurStaff.Time) != 1:
             note[1] += "*%s" % (CurStaff.Time,)
 
+    if not Visible(line.get("Visibility", ["Always"])[0]):
+        note[0] = "s"
 
     return Expression(Type, dur, None, note, line)
 
@@ -631,6 +653,7 @@ class Expression:
     """Expression"""
     Note = ("", "", "")
     Type = ""
+    Visible = ""
 
     #span
     Grace = 0       #first: 1, last: -1, only: 2
@@ -656,6 +679,7 @@ class Expression:
     def __init__(self, Type, dur, pitch, Note, line):
         self.Type = Type
         self.Note = Note
+        self.Visible = "" if Visible(line.get("Visibility", ["Always"])[0]) else "-\\tweak stencil ##f "
 
         if dur["grace"] and not CurStaff.Span["grace"]:
             CurStaff.Span["grace"] = True
@@ -682,7 +706,7 @@ class Expression:
             elif "Diminuendo" in line["Opts"] and CurStaff.Span["dynamicvar"] != "decresc":
                 CurStaff.Span["dynamicvar"] = "decresc"
                 self.DynamicSpan = "decresc"
-        if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]):
+        if CurStaff.Span["dynamicvar"] and "Crescendo" not in line.get("Opts", [""]) and not "Diminuendo" in line.get("Opts", [""]): #also present in Dynamic()
             CurStaff.Span["dynamicvar"] = ""
             cls = CurStaff.rfind("Expression")
             if cls.DynamicSpan in ["cresc", "decresc"]:
@@ -695,7 +719,7 @@ class Expression:
         elif dur["triplet"] == "end":
             self.Triplet = -1
 
-        if "Rest" not in Type:
+        if not self.Visible and "Rest" not in Type:
             self.Staccato = dur["staccato"]
             self.Staccatissimo = dur["staccatissimo"]
             self.Tenuto = dur["tenuto"]
@@ -733,7 +757,7 @@ class Expression:
         yield "".join(self.Note)
 
         if self.Slur == 1:
-            yield "("
+            yield "%s(" % (self.Visible, )
         elif self.Slur == -1:
             yield ")"
 
@@ -749,9 +773,9 @@ class Expression:
             yield "-^"
 
         if self.DynamicSpan == "cresc":
-            yield "\<"
+            yield "%s\<" % (self.Visible, )
         elif self.DynamicSpan == "decresc":
-            yield "\>"
+            yield "%s\>" % (self.Visible, )
         elif self.DynamicSpan == "off":
             yield "\!"
 
@@ -841,8 +865,10 @@ class RestMultiBar:
     """RestMultiBar"""
     Note = "1"
     Text = ""
+    Visible = True
 
     def __init__(self, line):
+        self.Visible = Visible(line.get("Visibility", ["Always"])[0])
         if Fraction(CurStaff.Time) != 1:
             self.Note += "*" + CurStaff.Time
 
@@ -859,9 +885,15 @@ class RestMultiBar:
             CurStaff.Delay["text"] = ""
 
     def print(self):
+        if not self.Visible:
+            yield "\\expandFullBarRests "
+
         if self.Text:
             yield "<>%s " % (self.Text,)
         yield "R%s " % (self.Note,)
+
+        if not self.Visible:
+            yield "\\compressFullBarRests "
 
 
 def StaffProperties(line):
