@@ -188,6 +188,7 @@ class Page:
     LocalRepeat = 0
     BrokenDouble = 0
     Ceasura = 0
+    Mode = set()
 
     def __init__(self):
         global CurPage, CurMultiVoice
@@ -229,6 +230,9 @@ class Page:
             yield "\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n"
         if self.Ceasura:
             yield "caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #\"scripts.caesura.straight\" \\breathe}\n"
+        for m in self.Mode:
+            if m in Config["keyHeader"]:
+                yield "%s = %s\n" %(m, Config["keyHeader"][m])
 
         yield "\header{\n"
         if self.Title != "\"\"":
@@ -823,24 +827,55 @@ def Instrument(line):
 
 class Key:
     Signature = ["C"]
+    Tonic = "C"
+    Mode = ""
+    Hide = "N"
 
     def __init__(self, line):
         self.Signature = line.get("Signature", ["C"])
+        self.Tonic = line.get("Tonic", ["C"])[0]
+        self.Hide = line.get("HideCancels", ["N"])[0]
         CurStaff.Key[0] = {a: 'n' for a in "abcdefg"}
         if self.Signature[0] != "C":
             CurStaff.Key[0].update([(a[0].lower(), a[1]) for a in self.Signature])
         CurStaff.Key[1].update(CurStaff.Key[0])
 
+        i = "GFEDCBA".index(self.Tonic)
+        arr = [2,2,1,2,2,1,2]
+        arr = arr[i+1:] + arr[:i+1]
+        for j in range(7):
+            if "GFEDCBA"[i-j] + "#" in self.Signature:
+                arr[-j] += 1
+                arr[-j-1] -= 1
+            elif "GFEDCBA"[i-j] + "b" in self.Signature:
+                arr[-j] -= 1
+                arr[-j-1] += 1
+
+        self.Mode = Config["key"].get("".join(map(str, arr)), "")
+        CurPage.Mode.add(self.Mode)
+
+
     def print(self):
-        yield "\set Staff.keySignature = #`("
-        if self.Signature[0] != "C":
-            yield " %s" % (" ".join([
-                    "(%d . %s) " % (
-                                    "CDEFGAB".index(a[0]),
-                                    [",FLAT", ",SHARP"]["b#".index(a[1])]
-                                   ) for a in self.Signature
-                    ]), )
-        yield ")\n\t"
+        if self.Hide == "Y":
+            yield "\once\set Staff.printKeyCancellation = ##f "
+        if self.Mode:
+            yield "\\key %s" % (self.Tonic.lower(),)
+            if self.Tonic + "#" in self.Signature:
+                yield "is"
+            elif self.Tonic + "b" in self.Signature:
+                yield "es"
+            yield "\\%s\n\t" % (self.Mode,)
+
+        else:
+            yield "\set Staff.keySignature = #`("
+            if self.Signature[0] != "C":
+                yield " %s" % (" ".join([
+                        "(%d . %s) " % (
+                                        "CDEFGAB".index(a[0]),
+                                        [",FLAT", ",SHARP"]["b#".index(a[1])]
+                                       ) for a in self.Signature
+                        ]), )
+            yield ")\n\t"
 
 #Lyrics FIXME
 

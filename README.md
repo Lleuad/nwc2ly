@@ -6,8 +6,8 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 ### Currently handles (nwc version 2.75):
 * notes and (multibar)rests (except special note heads)
 * all bar types (including EndingBar)
-* key and time signatures
-* clefs
+* key signatures (major, dorian, phrygian, lydian, mixolydian, minor, locrian, misheberak and freygish are notated as such)
+* clefs and time signatures
 * text
 * all dynamics and dynamic variance (cresc., rfz, etc.)
 * all tempo variance (rall., string., etc.) and tempo marking
