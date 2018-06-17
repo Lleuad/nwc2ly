@@ -230,7 +230,7 @@ class Page:
             yield "\\defineBarLine \"!!\" #\'(\"!!\" \"\" \"!!\")\n"
         if self.Ceasura:
             yield "caesura = {\\once\\override BreathingSign.text=\\markup\\musicglyph #\"scripts.caesura.straight\" \\breathe}\n"
-        for m in self.Mode:
+        for m in sorted(self.Mode):
             if m in Config["keyHeader"]:
                 yield "%s = %s\n" %(m, Config["keyHeader"][m])
 
