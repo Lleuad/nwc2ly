@@ -29,12 +29,12 @@ The goal is not to produce an exact copy of the score, NoteWorthy Composer isn't
 run `nwc2ly.py` and select the input file from the filedialog.
 #### with CLI
 save to file:<br>
-<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt <i>lilypondfile</i>.ly</code><br>
-<code>python nwc2ly.py <i>nwcfile</i>.nwc <i>lilypondfile</i>.ly</code>
+<code>python3 nwc2ly.py <i>nwctextfile</i>.nwctxt <i>lilypondfile</i>.ly</code><br>
+<code>python3 nwc2ly.py <i>nwcfile</i>.nwc <i>lilypondfile</i>.ly</code>
 
 pipe directly into lilypond:<br>
-<code>python nwc2ly.py <i>nwctextfile</i>.nwctxt - | lilypond --pdf -o <i>pdfout</i>.pdf -</code><br>
-<code>python nwc2ly.py <i>nwcfile</i>.nwc - | lilypond --pdf -o <i>pdfout</i>.pdf -</code>
+<code>python3 nwc2ly.py <i>nwctextfile</i>.nwctxt - | lilypond --pdf -o <i>pdfout</i>.pdf -</code><br>
+<code>python3 nwc2ly.py <i>nwcfile</i>.nwc - | lilypond --pdf -o <i>pdfout</i>.pdf -</code>
 
 ### License ###
 
